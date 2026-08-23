@@ -1,0 +1,10 @@
+{
+  "name": "fernandesgyn/pagamentos",
+  "description": "Sistema de gestão de liquidação e pagamentos em PHP puro, MySQL e AdminLTE.",
+  "type": "project",
+  "license": "proprietary",
+  "require": {
+    "php": ">=8.2",
+    "ext-pdo": "*"
+  }
+}
