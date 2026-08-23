@@ -15,7 +15,7 @@ return [
  ['POST','/documentos/{id}/parcelas','HomeController','parcela'],
  ['POST','/documentos/{documentoId}/parcelas/{parcelaId}/componentes','HomeController','componente'],
  ['POST','/documentos/{documentoId}/parcelas/{parcelaId}/liquidar','HomeController','liquidar'],
- ['POST','/documentos/{documentoId}/parcelas/{parcelaId}/cmdf','HomeController','cmdf'],
+ ['POST','/documentos/{documentoId}/parcelas/{parcelaId}/cmdf','CmdfController','concluir'],
 
  ['GET','/inspecoes','FilaController','inspecoes'],
  ['GET','/programacao','FilaController','programacao'],
