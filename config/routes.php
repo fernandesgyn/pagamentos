@@ -17,6 +17,11 @@ return [
  ['POST','/documentos/{documentoId}/parcelas/{parcelaId}/liquidar','HomeController','liquidar'],
  ['POST','/documentos/{documentoId}/parcelas/{parcelaId}/cmdf','HomeController','cmdf'],
 
+ ['GET','/inspecoes','FilaController','inspecoes'],
+ ['GET','/programacao','FilaController','programacao'],
+ ['GET','/liquidacoes','FilaController','liquidacoes'],
+ ['GET','/cmdf','FilaController','cmdf'],
+
  ['GET','/pagamentos','PagamentoController','index'],
  ['POST','/documentos/{documentoId}/parcelas/{parcelaId}/pagar','PagamentoController','pagar'],
 
