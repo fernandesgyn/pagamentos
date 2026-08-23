@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 return [
+ ['GET','/login','AuthController','loginForm'],
+ ['POST','/login','AuthController','login'],
+ ['POST','/logout','AuthController','logout'],
+
  ['GET','/','HomeController','index'],
  ['GET','/obrigacoes','HomeController','obrigacoes'],
  ['POST','/obrigacoes','HomeController','salvarObrigacao'],
@@ -12,4 +16,14 @@ return [
  ['POST','/documentos/{documentoId}/parcelas/{parcelaId}/componentes','HomeController','componente'],
  ['POST','/documentos/{documentoId}/parcelas/{parcelaId}/liquidar','HomeController','liquidar'],
  ['POST','/documentos/{documentoId}/parcelas/{parcelaId}/cmdf','HomeController','cmdf'],
+ ['POST','/documentos/{documentoId}/parcelas/{parcelaId}/pagar','HomeController','pagar'],
+
+ ['GET','/cadastros','CadastroController','index'],
+ ['POST','/cadastros/fornecedores','CadastroController','fornecedor'],
+ ['POST','/cadastros/empenhos','CadastroController','empenho'],
+ ['POST','/cadastros/tipos-documento','CadastroController','tipoDocumento'],
+ ['POST','/cadastros/tipos-obrigacao','CadastroController','tipoObrigacao'],
+
+ ['GET','/usuarios','UsuarioController','index'],
+ ['POST','/usuarios','UsuarioController','salvar'],
 ];
