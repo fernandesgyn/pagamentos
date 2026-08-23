@@ -37,3 +37,28 @@ jobs:
         run: |
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='pagamentos';" | grep -E '^[1-9][0-9]*$'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.status_inspecao WHERE permite_avancar=1;" | grep '^2$'
+      - name: Carregar seeds de homologação
+        env:
+          MYSQL_PWD: root
+        run: |
+          mysql -h 127.0.0.1 -uroot pagamentos < database/seeds/001_cadastros_teste.sql
+          mysql -h 127.0.0.1 -uroot pagamentos < database/seeds/002_fluxo_documentos_inspecoes_teste.sql
+          mysql -h 127.0.0.1 -uroot pagamentos < database/seeds/003_programacao_liquidacao_cmdf_pagamento_teste.sql
+      - name: Validar cenários de homologação
+        env:
+          MYSQL_PWD: root
+        run: |
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.usuarios WHERE id BETWEEN 9000 AND 9999;" | grep '^6$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.documentos_pagamento WHERE id BETWEEN 9000 AND 9999;" | grep '^10$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.inspecoes WHERE id BETWEEN 9000 AND 9999;" | grep '^10$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.parcelas_pagamento WHERE id BETWEEN 9000 AND 9999;" | grep '^5$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.pagamentos WHERE id BETWEEN 9000 AND 9999 AND status='PAGO';" | grep '^2$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT ROUND(SUM(valor_total),2) FROM pagamentos.parcelas_pagamento WHERE documento_id=9001;" | grep '^10000.00$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT ROUND(SUM(valor),2) FROM pagamentos.parcela_componentes WHERE parcela_id=9003;" | grep '^10000.00$'
+      - name: Validar limpeza dos seeds
+        env:
+          MYSQL_PWD: root
+        run: |
+          mysql -h 127.0.0.1 -uroot pagamentos < database/seeds/999_limpar_testes.sql
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.documentos_pagamento WHERE id BETWEEN 9000 AND 9999;" | grep '^0$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.usuarios WHERE id BETWEEN 9000 AND 9999;" | grep '^0$'
