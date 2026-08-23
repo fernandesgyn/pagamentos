@@ -16,6 +16,8 @@ return [
  ['POST','/documentos/{documentoId}/parcelas/{parcelaId}/componentes','HomeController','componente'],
  ['POST','/documentos/{documentoId}/parcelas/{parcelaId}/liquidar','HomeController','liquidar'],
  ['POST','/documentos/{documentoId}/parcelas/{parcelaId}/cmdf','HomeController','cmdf'],
+
+ ['GET','/pagamentos','PagamentoController','index'],
  ['POST','/documentos/{documentoId}/parcelas/{parcelaId}/pagar','PagamentoController','pagar'],
 
  ['GET','/cadastros','CadastroController','index'],
