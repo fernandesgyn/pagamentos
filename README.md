@@ -68,6 +68,12 @@ public/
   .htaccess
 database/
   schema.sql       # schema consolidado e dados iniciais
+  seeds/
+    001_cadastros_teste.sql
+    002_fluxo_documentos_inspecoes_teste.sql
+    003_programacao_liquidacao_cmdf_pagamento_teste.sql
+    999_limpar_testes.sql
+    README.md
 scripts/
   create_admin.php
 server.php
@@ -116,6 +122,28 @@ php -S localhost:8000 -t public server.php
 ```
 
 Acesse `http://localhost:8000`.
+
+## Seeds de homologação
+
+Após executar o schema, a massa completa pode ser carregada nesta ordem:
+
+```powershell
+mysql -u root -p pagamentos < database/seeds/001_cadastros_teste.sql
+mysql -u root -p pagamentos < database/seeds/002_fluxo_documentos_inspecoes_teste.sql
+mysql -u root -p pagamentos < database/seeds/003_programacao_liquidacao_cmdf_pagamento_teste.sql
+```
+
+Os usuários de homologação usam a senha `Teste@123` e existem para os perfis Administrador, Gestor, Inspetor, Liquidação, CMDF e Consulta.
+
+A massa usa IDs reservados de **9000 a 9999** e contém cenários em todas as principais etapas, inclusive pendências e situações propositalmente incompletas para testar os bloqueios das regras de negócio.
+
+Para limpar somente a massa de homologação:
+
+```powershell
+mysql -u root -p pagamentos < database/seeds/999_limpar_testes.sql
+```
+
+A matriz completa de cenários está em `database/seeds/README.md`.
 
 ## Cadastros iniciais pela interface
 
