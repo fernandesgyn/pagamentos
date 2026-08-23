@@ -11,9 +11,23 @@ A arquitetura segue o padrão do projeto `fernandesgyn/licitacoes`: **PHP puro 8
 3. **Inspeção** — fila própria com histórico e estados. Apenas `Concluída` e `Concluída com ressalvas` liberam a etapa seguinte.
 4. **Programação para pagamento** — o documento pode ser dividido em várias parcelas; cada parcela é vinculada a um **Empenho de pagamento**, que é conceitualmente distinto de eventual empenho usado como instrumento da obrigação.
 5. **Composição da parcela** — principal/líquido, INSS, ISS, PIS/COFINS, IR, CSLL, DARE e outros componentes configuráveis.
-6. **Liquidação** — começa em `AGUARDANDO` e somente conclui com data de liquidação.
-7. **CMDF** — criada automaticamente após a liquidação e concluída mediante registro da data e dos marcos da etapa.
-8. **Pagamento** — registra data, valor líquido pago, histórico de pagamento e Benner AP.
+6. **Liquidação por parcela** — cada parcela inicia em `AGUARDANDO` e é concluída individualmente com sua própria data de liquidação.
+7. **CMDF por parcela** — criada individualmente após a liquidação daquela parcela e concluída mediante os marcos da etapa.
+8. **Pagamento por parcela** — registra data, valor líquido pago, histórico de pagamento e Benner AP da parcela.
+
+## Independência das parcelas
+
+A Nota Fiscal/documento funciona como agrupador e controle do valor total. A programação só é considerada fechada quando a soma dos valores das parcelas for exatamente igual ao valor bruto do documento.
+
+**Depois que a programação estiver fechada, cada parcela percorre o restante do fluxo de maneira totalmente independente.** Não existe exigência de que parcelas irmãs estejam na mesma etapa ou sejam concluídas juntas.
+
+Exemplo para uma NF de R$ 10.000,00 dividida em três parcelas:
+
+- Parcela 1 — R$ 4.000,00 — `PAGO`;
+- Parcela 2 — R$ 3.500,00 — `CMDF / AGUARDANDO`;
+- Parcela 3 — R$ 2.500,00 — `LIQUIDAÇÃO / AGUARDANDO`.
+
+A situação de uma parcela não bloqueia o avanço de outra, desde que a parcela que pretende avançar cumpra suas próprias regras. Por exemplo, a composição financeira da Parcela 2 pode estar incompleta sem impedir a liquidação ou o pagamento da Parcela 1.
 
 ## Regras principais
 
@@ -22,10 +36,11 @@ A arquitetura segue o padrão do projeto `fernandesgyn/licitacoes`: **PHP puro 8
 - documento fiscal possui número, data, valor bruto e data/hora de lançamento automática;
 - somente inspeções `Concluída` e `Concluída com ressalvas` permitem programação;
 - a soma das parcelas nunca pode ultrapassar o valor do documento;
-- a liquidação só pode ser concluída quando a soma das parcelas for **exatamente igual** ao valor do documento;
-- a composição financeira de cada parcela também precisa fechar **exatamente** o valor da parcela;
-- a CMDF só pode ser concluída após liquidação concluída;
-- pagamento só pode ser registrado após CMDF concluída.
+- antes de qualquer parcela seguir para liquidação, a programação do documento precisa estar fechada: soma das parcelas = valor do documento;
+- a partir desse ponto, **Liquidação, CMDF e Pagamento são controlados individualmente por parcela**;
+- a composição financeira da parcela que pretende avançar precisa fechar exatamente o valor dessa parcela; a composição das demais parcelas não interfere;
+- a CMDF de uma parcela só pode ser concluída após a liquidação daquela mesma parcela;
+- o pagamento de uma parcela só pode ser registrado após a CMDF daquela mesma parcela estar concluída.
 
 ## Status de inspeção iniciais
 
@@ -49,7 +64,7 @@ O schema cria os perfis iniciais:
 - **CMDF** — fila e conclusão da CMDF;
 - **Consulta** — dashboard/consulta.
 
-As filas operacionais são separadas para que cada perfil encontre diretamente o trabalho de sua etapa.
+As filas de Liquidação, CMDF e Pagamento trabalham com **parcelas**, e não com o documento inteiro. Assim, parcelas da mesma Nota Fiscal podem aparecer simultaneamente em filas diferentes.
 
 ## Estrutura
 
@@ -135,7 +150,7 @@ mysql -u root -p pagamentos < database/seeds/003_programacao_liquidacao_cmdf_pag
 
 Os usuários de homologação usam a senha `Teste@123` e existem para os perfis Administrador, Gestor, Inspetor, Liquidação, CMDF e Consulta.
 
-A massa usa IDs reservados de **9000 a 9999** e contém cenários em todas as principais etapas, inclusive pendências e situações propositalmente incompletas para testar os bloqueios das regras de negócio.
+A massa usa IDs reservados de **9000 a 9999** e contém cenários em todas as principais etapas, inclusive parcelas do mesmo documento em fases diferentes.
 
 Para limpar somente a massa de homologação:
 
@@ -167,4 +182,4 @@ Depois use **Usuários e perfis** para criar os usuários responsáveis por cada
 
 ## Observação sobre a planilha original
 
-O sistema não replica a planilha como uma tabela única. Campos foram normalizados por entidade e fase. Datas como envio à COOINSP, devolução/retorno de pendência, conclusão da inspeção, liquidação, marcos de CMDF e pagamento ficam nas respectivas etapas. Campos calculáveis, como situação da fila ou fechamento do valor, são derivados pelo sistema em vez de serem digitados repetidamente.
+O sistema não replica a planilha como uma tabela única. Campos foram normalizados por entidade e fase. Datas como envio à COOINSP, devolução/retorno de pendência, conclusão da inspeção, liquidação, marcos de CMDF e pagamento ficam nas respectivas etapas. Depois da programação, essas etapas pertencem à **parcela**, permitindo que parcelas de um mesmo documento avancem em ritmos diferentes.
