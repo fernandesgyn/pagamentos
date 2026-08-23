@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  validar:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Versão do PHP
+        run: php -v
+      - name: Extensões obrigatórias
+        run: php -r "exit(extension_loaded('pdo') && extension_loaded('mbstring') ? 0 : 1);"
+      - name: Lint PHP
+        run: find app config public scripts -name '*.php' -print0 | xargs -0 -n1 php -l
+      - name: Validar schema MySQL
+        env:
+          MYSQL_PWD: root
+        run: mysql -h 127.0.0.1 -uroot < database/schema.sql
+      - name: Verificar tabelas centrais
+        env:
+          MYSQL_PWD: root
+        run: |
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='pagamentos';" | grep -E '^[1-9][0-9]*$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.status_inspecao WHERE permite_avancar=1;" | grep '^2$'
