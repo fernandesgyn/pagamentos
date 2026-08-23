@@ -35,7 +35,7 @@ Todos usam a senha `Teste@123`.
 
 | Documento | Valor | Situação principal |
 |---|---:|---|
-| NF 50 | R$ 10.000,00 | Inspeção concluída; 2 parcelas fechando o documento; parcela 1 paga; parcela 2 aguardando liquidação |
+| NF 50 | R$ 10.000,00 | **Demonstra fluxo independente:** 2 parcelas fecham a NF; parcela 1 já está paga e parcela 2 continua aguardando liquidação |
 | NF 51 | R$ 5.000,00 | Inspeção em andamento; sem programação |
 | Fatura 77 | R$ 12.000,00 | Concluída com ressalvas; parcela criada; composição propositalmente incompleta |
 | NF 900 | R$ 4.500,00 | Devolvida para o gestor por pendência |
@@ -46,14 +46,27 @@ Todos usam a senha `Teste@123`.
 | NF 52 | R$ 6.200,00 | Recém-lançada, aguardando inspeção |
 | Fatura 78 | R$ 6.000,00 | Retornada para inspeção após pendência |
 
+## Regra de independência das parcelas
+
+O documento precisa ter sua **programação fechada** — soma dos valores das parcelas igual ao valor bruto da NF/fatura. Depois disso, Liquidação, CMDF e Pagamento pertencem à parcela.
+
+Assim, parcelas irmãs podem estar simultaneamente em etapas diferentes. O cenário da **NF 50** comprova essa regra na massa de testes:
+
+- parcela `9001`: liquidação concluída → CMDF concluída → `PAGO`;
+- parcela `9002`: `LIQUIDAÇÃO / AGUARDANDO`;
+- ambas pertencem ao documento `9001` (NF 50).
+
+Não deve existir regra que obrigue a parcela 9002 a avançar para que a parcela 9001 permaneça paga, nem regra que exija que todas as parcelas concluam Liquidação/CMDF juntas.
+
 ## Regras que os seeds ajudam a testar
 
 1. Apenas inspeções `Concluída` e `Concluída com ressalvas` liberam programação.
-2. O valor total das parcelas deve fechar exatamente o valor bruto do documento antes da liquidação.
-3. A composição de cada parcela deve fechar exatamente seu valor.
-4. Liquidação concluída libera a etapa CMDF.
-5. CMDF concluída libera pagamento.
-6. O empenho usado na parcela é o **empenho de pagamento**, distinto do instrumento de obrigação.
-7. As filas por perfil podem ser conferidas com usuários específicos de Gestor, Inspetor, Liquidação, CMDF e Consulta.
+2. O valor total das parcelas deve fechar exatamente o valor bruto do documento antes de elas avançarem da programação.
+3. A composição **da própria parcela** deve fechar exatamente seu valor para aquela parcela ser liquidada.
+4. Depois da programação, uma parcela não depende da etapa das demais parcelas do documento.
+5. Liquidação concluída de uma parcela libera a CMDF daquela parcela.
+6. CMDF concluída de uma parcela libera o pagamento daquela parcela.
+7. O empenho usado na parcela é o **empenho de pagamento**, distinto do instrumento de obrigação.
+8. As filas por perfil podem ser conferidas com usuários específicos de Gestor, Inspetor, Liquidação, CMDF e Consulta.
 
 Os scripts foram desenhados para serem reexecutáveis sobre uma base de homologação criada a partir do schema consolidado. Para uma recarga totalmente previsível, execute primeiro `999_limpar_testes.sql` e depois os seeds `001` a `003`.
