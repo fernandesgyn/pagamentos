@@ -6,6 +6,7 @@ $checkboxes=$checkboxes??[];
 $numericos=$numericos??[];
 $selects=$selects??[];
 $obrigatorios=['razao_social','documento','tipo_pessoa','codigo','nome'];
+$checkboxes=array_values(array_unique([...$checkboxes,'ativo']));
 ?>
 <form method="post" action="<?=e($action)?>" class="card card-primary card-outline">
   <div class="card-header"><h3 class="card-title">Dados do registro</h3></div>
