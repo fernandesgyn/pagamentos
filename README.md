@@ -42,6 +42,19 @@ A situação de uma parcela não bloqueia o avanço de outra, desde que a parcel
 - a CMDF de uma parcela só pode ser concluída após a liquidação daquela mesma parcela;
 - o pagamento de uma parcela só pode ser registrado após a CMDF daquela mesma parcela estar concluída.
 
+## Padrão de tabelas administrativas
+
+As listagens seguem o mesmo componente adotado no projeto `licitacoes`. Toda tabela administrativa principal deve usar `data-admin-table` e possuir:
+
+- pesquisa e filtros contextuais;
+- seleção de **10, 25, 50 ou 100 itens por página**;
+- paginação no rodapé com contador de registros;
+- ordenação pelos cabeçalhos aplicáveis;
+- coluna **Ações** como última coluna e fora da ordenação;
+- botões de ação com ícone e texto, direcionados a uma operação real do registro.
+
+Os componentes reutilizáveis ficam em `app/views/components/admin_table_filters.php`, `app/views/components/admin_table_footer.php`, `public/assets/js/admin-table.js` e `public/assets/css/admin-table.css`. A CI valida a presença desse padrão nas principais telas para reduzir regressões.
+
 ## Status de inspeção iniciais
 
 - Aguardando inspeção
@@ -74,13 +87,14 @@ app/
   core/            # App, Auth, CSRF, Database e View
   helpers/         # funções utilitárias
   models/          # regras de negócio e acesso ao banco via PDO
-  views/           # layouts e páginas AdminLTE
+  views/           # layouts, componentes e páginas AdminLTE
 config/
   config.php
   routes.php       # rotas explícitas
 public/
   index.php        # Front Controller
   .htaccess
+  assets/          # JS/CSS próprios, incluindo tabela administrativa
 database/
   schema.sql       # schema consolidado e dados iniciais
   seeds/
