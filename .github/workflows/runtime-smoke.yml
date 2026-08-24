@@ -1,0 +1,165 @@
+name: Runtime Smoke
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  rotas:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_DATABASE: pagamentos
+      DB_USERNAME: root
+      DB_PASSWORD: root
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validar PHP de runtime
+        run: |
+          php -v
+          php -r "exit(extension_loaded('pdo') && extension_loaded('pdo_mysql') && extension_loaded('mbstring') ? 0 : 1);"
+          find app config public scripts -name '*.php' -print0 | xargs -0 -n1 php -l
+
+      - name: Preparar banco e massa de homologação
+        env:
+          MYSQL_PWD: root
+        run: |
+          mysql -h 127.0.0.1 -uroot -e "DROP DATABASE IF EXISTS pagamentos;"
+          mysql -h 127.0.0.1 -uroot < database/schema.sql
+          mysql -h 127.0.0.1 -uroot pagamentos < database/seeds/001_cadastros_teste.sql
+          mysql -h 127.0.0.1 -uroot pagamentos < database/seeds/002_fluxo_documentos_inspecoes_teste.sql
+          mysql -h 127.0.0.1 -uroot pagamentos < database/seeds/003_programacao_liquidacao_cmdf_pagamento_teste.sql
+
+      - name: Subir aplicação com erros PHP visíveis
+        run: |
+          nohup php \
+            -d display_errors=1 \
+            -d display_startup_errors=1 \
+            -d error_reporting=E_ALL \
+            -S 127.0.0.1:8080 -t public server.php \
+            > /tmp/pagamentos-server.log 2>&1 &
+          echo $! > /tmp/pagamentos-server.pid
+
+          for tentativa in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:8080/login >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+
+          cat /tmp/pagamentos-server.log
+          exit 1
+
+      - name: Autenticar administrador de homologação
+        run: |
+          curl -fsS -c /tmp/pagamentos-cookies.txt http://127.0.0.1:8080/login > /tmp/login.html
+          TOKEN=$(sed -n 's/.*name="_token" value="\([^"]*\)".*/\1/p' /tmp/login.html | head -n 1)
+          test -n "$TOKEN"
+
+          curl -fsS -L \
+            -b /tmp/pagamentos-cookies.txt \
+            -c /tmp/pagamentos-cookies.txt \
+            --data-urlencode "_token=$TOKEN" \
+            --data-urlencode "login=admin.teste" \
+            --data-urlencode "senha=Teste@123" \
+            http://127.0.0.1:8080/login > /tmp/home.html
+
+          grep -q 'Administrador de Teste' /tmp/home.html
+
+      - name: Testar rotas GET principais
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          rotas=(
+            "/"
+            "/obrigacoes"
+            "/obrigacoes/nova"
+            "/documentos"
+            "/documentos/novo"
+            "/documentos/9001"
+            "/inspecoes"
+            "/inspecoes/9001"
+            "/programacao"
+            "/programacao/9001"
+            "/liquidacoes"
+            "/liquidacoes/9001"
+            "/cmdf"
+            "/cmdf/9002"
+            "/pagamentos"
+            "/fornecedores"
+            "/fornecedores/novo"
+            "/fornecedores/9001/editar"
+            "/fontes-recurso"
+            "/fontes-recurso/nova"
+            "/fontes-recurso/9001/editar"
+            "/naturezas-despesa"
+            "/naturezas-despesa/nova"
+            "/naturezas-despesa/9001/editar"
+            "/tipos-recurso"
+            "/tipos-recurso/novo"
+            "/tipos-recurso/9001/editar"
+            "/tipos-documento"
+            "/tipos-documento/novo"
+            "/tipos-documento/1/editar"
+            "/tipos-obrigacao"
+            "/tipos-obrigacao/novo"
+            "/tipos-obrigacao/1/editar"
+            "/usuarios"
+            "/usuarios/novo"
+            "/usuarios/9002/editar"
+            "/perfis"
+            "/perfis/novo"
+            "/perfis/2/editar"
+          )
+
+          padrao_erro='Warning:|Notice:|Fatal error:|Undefined variable|Undefined array key|Uncaught|Deprecated:'
+
+          for rota in "${rotas[@]}"; do
+            nome=$(printf '%s' "$rota" | sed 's#[/?=&]#_#g; s#^_$#home#')
+            arquivo="/tmp/rota-${nome}.html"
+            codigo=$(curl -sS -b /tmp/pagamentos-cookies.txt -o "$arquivo" -w '%{http_code}' "http://127.0.0.1:8080${rota}")
+
+            if [ "$codigo" != "200" ]; then
+              echo "Rota ${rota} retornou HTTP ${codigo}"
+              cat "$arquivo"
+              exit 1
+            fi
+
+            if grep -Eiq "$padrao_erro" "$arquivo"; then
+              echo "Erro PHP encontrado na rota ${rota}:"
+              grep -Ein "$padrao_erro" "$arquivo" || true
+              exit 1
+            fi
+          done
+
+      - name: Verificar log de runtime
+        if: always()
+        shell: bash
+        run: |
+          padrao_log='PHP Warning|PHP Notice|PHP Fatal error|Uncaught|Undefined variable|Undefined array key|PHP Deprecated'
+          if [ -f /tmp/pagamentos-server.log ] && grep -Ein "$padrao_log" /tmp/pagamentos-server.log; then
+            echo 'O servidor registrou erros/avisos PHP durante o smoke test.'
+            cat /tmp/pagamentos-server.log
+            exit 1
+          fi
+
+          if [ -f /tmp/pagamentos-server.pid ]; then
+            kill "$(cat /tmp/pagamentos-server.pid)" 2>/dev/null || true
+          fi
