@@ -1,9 +1,11 @@
 :root{--portal-action-gap:.5rem}
 .portal-action-group{display:inline-flex!important;align-items:center;flex-wrap:wrap;gap:var(--portal-action-gap)!important;vertical-align:middle}
 .portal-action-group>form{display:inline-flex;margin:0!important}
+.portal-action-group .btn{display:inline-flex;align-items:center;justify-content:center;gap:.35rem;white-space:nowrap}
+.portal-page-actions{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:var(--portal-action-gap);width:100%;margin-bottom:1rem}
+.portal-page-actions-right{margin-left:auto;justify-content:flex-end}
 .portal-actions-cell{width:1%;white-space:nowrap}
 .portal-table-actions{display:flex!important;width:max-content;max-width:none;margin-left:auto;flex-wrap:nowrap!important}
-.portal-table-actions .btn{display:inline-flex;align-items:center;justify-content:center;gap:.35rem;white-space:nowrap}
 [data-admin-table] .table td,[data-admin-table] .table th{vertical-align:middle}
 [data-admin-table] .table th button{white-space:nowrap}
 [data-admin-table] .card-footer .pagination{flex-wrap:wrap}
@@ -13,4 +15,4 @@
   [data-admin-table]>.card-body.border-bottom>.row>[class*="col-lg-2"]{flex:1 1 0;width:auto;min-width:0}
   [data-admin-table]>.card-body.border-bottom>.row>.col-md-auto{flex:0 0 auto;width:auto}
 }
-@media (max-width:767.98px){.portal-table-actions{flex-wrap:wrap!important}}
+@media (max-width:767.98px){.portal-table-actions{flex-wrap:wrap!important}.portal-page-actions-left,.portal-page-actions-right{width:100%}.portal-page-actions-right{margin-left:0;justify-content:flex-start}}
