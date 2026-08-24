@@ -3,20 +3,108 @@ document.addEventListener('DOMContentLoaded', function () {
     return (value || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   }
 
-  document.querySelectorAll('[data-select-search]').forEach(function (input) {
-    var target = document.querySelector(input.getAttribute('data-select-search'));
-    if (!target) return;
+  document.querySelectorAll('[data-supplier-combobox]').forEach(function (combo) {
+    var input = combo.querySelector('[data-combobox-input]');
+    var value = combo.querySelector('[data-combobox-value]');
+    var menu = combo.querySelector('[data-combobox-menu]');
+    var options = Array.from(combo.querySelectorAll('[data-combobox-option]'));
+    var empty = combo.querySelector('[data-combobox-empty]');
+    if (!input || !value || !menu) return;
 
-    input.addEventListener('input', function () {
-      var term = normalize(input.value);
-      Array.from(target.options).forEach(function (option, index) {
-        if (index === 0) return;
-        var match = normalize(option.textContent).includes(term);
-        option.hidden = !match;
-        option.disabled = !match;
+    var activeIndex = -1;
+
+    function closeMenu() {
+      menu.classList.add('d-none');
+      input.setAttribute('aria-expanded', 'false');
+      activeIndex = -1;
+      options.forEach(function (option) { option.classList.remove('active'); });
+    }
+
+    function visibleOptions() {
+      return options.filter(function (option) { return !option.classList.contains('d-none'); });
+    }
+
+    function openAndFilter() {
+      var term = normalize(input.value.trim());
+      var shown = 0;
+      options.forEach(function (option) {
+        var haystack = normalize((option.dataset.label || '') + ' ' + option.textContent);
+        var match = term === '' || haystack.includes(term);
+        if (match && shown < 20) {
+          option.classList.remove('d-none');
+          shown += 1;
+        } else {
+          option.classList.add('d-none');
+        }
       });
-      if (target.selectedOptions[0] && target.selectedOptions[0].disabled) target.value = '';
+      if (empty) empty.classList.toggle('d-none', shown !== 0);
+      menu.classList.remove('d-none');
+      input.setAttribute('aria-expanded', 'true');
+      activeIndex = -1;
+    }
+
+    function selectOption(option) {
+      value.value = option.dataset.value || '';
+      input.value = option.dataset.label || option.textContent.trim();
+      input.setCustomValidity('');
+      value.dispatchEvent(new Event('change', { bubbles: true }));
+      closeMenu();
+    }
+
+    input.addEventListener('focus', openAndFilter);
+    input.addEventListener('input', function () {
+      value.value = '';
+      value.dispatchEvent(new Event('change', { bubbles: true }));
+      input.setCustomValidity('Selecione um fornecedor na lista de resultados.');
+      openAndFilter();
     });
+
+    options.forEach(function (option) {
+      option.addEventListener('mousedown', function (event) {
+        event.preventDefault();
+        selectOption(option);
+      });
+    });
+
+    input.addEventListener('keydown', function (event) {
+      var visible = visibleOptions();
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        if (menu.classList.contains('d-none')) openAndFilter();
+        visible = visibleOptions();
+        if (!visible.length) return;
+        activeIndex += event.key === 'ArrowDown' ? 1 : -1;
+        if (activeIndex < 0) activeIndex = visible.length - 1;
+        if (activeIndex >= visible.length) activeIndex = 0;
+        visible.forEach(function (option) { option.classList.remove('active'); });
+        visible[activeIndex].classList.add('active');
+        visible[activeIndex].scrollIntoView({ block: 'nearest' });
+      } else if (event.key === 'Enter' && !menu.classList.contains('d-none')) {
+        if (activeIndex >= 0 && visible[activeIndex]) {
+          event.preventDefault();
+          selectOption(visible[activeIndex]);
+        }
+      } else if (event.key === 'Escape') {
+        closeMenu();
+      }
+    });
+
+    document.addEventListener('mousedown', function (event) {
+      if (!combo.contains(event.target)) closeMenu();
+    });
+
+    var form = combo.closest('form');
+    if (form) {
+      form.addEventListener('submit', function (event) {
+        if (value.value === '') {
+          input.setCustomValidity('Selecione um fornecedor na lista de resultados.');
+          input.reportValidity();
+          event.preventDefault();
+        } else {
+          input.setCustomValidity('');
+        }
+      });
+    }
   });
 
   document.querySelectorAll('[data-repeat-select]').forEach(function (group) {
@@ -30,7 +118,10 @@ document.addEventListener('DOMContentLoaded', function () {
       remove.addEventListener('click', function () {
         var allRows = rows.querySelectorAll('[data-repeat-row]');
         if (allRows.length > 1) row.remove();
-        else row.querySelector('select').value = '';
+        else {
+          var select = row.querySelector('select');
+          if (select) select.value = '';
+        }
       });
     }
 
@@ -46,7 +137,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
-  var supplier = document.querySelector('[data-supplier-select]');
+  var supplier = document.querySelector('[data-supplier-value]');
   var obligation = document.querySelector('[data-obligation-select]');
   if (supplier && obligation) {
     function filterObligations() {
@@ -59,6 +150,7 @@ document.addEventListener('DOMContentLoaded', function () {
       });
       if (obligation.selectedOptions[0] && obligation.selectedOptions[0].disabled) obligation.value = '';
       obligation.disabled = supplierId === '';
+      obligation.options[0].textContent = supplierId === '' ? 'Selecione primeiro o fornecedor' : 'Selecione a obrigação';
     }
     supplier.addEventListener('change', filterObligations);
     filterObligations();
