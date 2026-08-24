@@ -1,18 +1,31 @@
 <?php
 $tablePageSize=10;
 $tableFilters=[['label'=>'Pesquisa geral','column'=>'*','type'=>'search','placeholder'=>'Pesquisar em todos os campos','class'=>'col-12 col-lg-4']];
-$pageRightActions=[[ 'href'=>$baseUrl.'/novo','label'=>$novoLabel,'icon'=>'fa-plus','class'=>'btn btn-sm btn-primary' ]];
+$novoPorRota=[
+  '/fornecedores'=>['/fornecedores/novo','Novo fornecedor'],
+  '/fontes-recurso'=>['/fontes-recurso/nova','Nova fonte de recurso'],
+  '/naturezas-despesa'=>['/naturezas-despesa/nova','Nova natureza da despesa'],
+  '/tipos-recurso'=>['/tipos-recurso/novo','Novo tipo de recurso'],
+  '/tipos-documento'=>['/tipos-documento/novo','Novo tipo de documento'],
+  '/tipos-obrigacao'=>['/tipos-obrigacao/novo','Novo tipo de obrigação'],
+];
+[$novoUrl,$novoLabel]=$novoPorRota[$baseUrl]??[$baseUrl.'/novo','Novo registro'];
+$pageRightActions=[[ 'href'=>$novoUrl,'label'=>$novoLabel,'icon'=>'fa-plus','class'=>'btn btn-sm btn-primary' ]];
 require BASE_PATH.'/app/views/components/page_actions.php';
 ?>
 <div class="card" data-admin-table data-page-size="<?=$tablePageSize?>">
-  <div class="card-header"><h3 class="card-title"><?=e($tituloCard)?></h3></div>
+  <div class="card-header"><h3 class="card-title"><?=e($titulo)?></h3></div>
   <?php require BASE_PATH.'/app/views/components/admin_table_filters.php';?>
   <div class="card-body p-0"><div class="table-responsive"><table class="table table-hover table-striped mb-0 align-middle">
     <thead><tr><?php foreach($campos as $campo=>$label):?><th><?=e($label)?></th><?php endforeach;?><th class="text-end portal-actions-cell" data-table-nosort>Ações</th></tr></thead>
     <tbody>
     <?php foreach($registros as $r):?><tr data-record-id="<?=e($r['id'])?>">
       <?php foreach($campos as $campo=>$label):?>
-        <?php $valor=$r[$campo]??'';if(in_array($campo,['ativo','exige_numero','exige_numero_ano'],true))$valor=((int)$valor===1?'Sim':'Não');?>
+        <?php
+          $valor=$r[$campo]??'';
+          if(in_array($campo,['ativo','exige_numero','exige_numero_ano'],true))$valor=((int)$valor===1?'Sim':'Não');
+          if($campo==='tipo_pessoa')$valor=$valor==='PF'?'Pessoa Física':($valor==='PJ'?'Pessoa Jurídica':$valor);
+        ?>
         <td><?=e((string)$valor)?></td>
       <?php endforeach;?>
       <td class="text-end portal-actions-cell"><div class="portal-action-group portal-table-actions justify-content-end">
@@ -25,4 +38,4 @@ require BASE_PATH.'/app/views/components/page_actions.php';
   </table></div></div>
   <?php require BASE_PATH.'/app/views/components/admin_table_footer.php';?>
 </div>
-<?php unset($tablePageSize,$tableFilters,$valor);?>
+<?php unset($tablePageSize,$tableFilters,$novoPorRota,$novoUrl,$novoLabel,$valor);?>

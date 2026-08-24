@@ -1,5 +1,11 @@
-DROP DATABASE IF EXISTS pagamentos;
-CREATE DATABASE pagamentos CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+-- Schema consolidado do sistema de Liquidação e Pagamentos.
+-- Uso: provisionamento de banco NOVO. Não há migrations.
+-- O script não apaga nem altera estruturas preexistentes: se já houver tabelas,
+-- a execução falha e exige intervenção explícita do administrador.
+
+CREATE DATABASE IF NOT EXISTS pagamentos
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_unicode_ci;
 USE pagamentos;
 
 CREATE TABLE perfis (
@@ -21,7 +27,9 @@ CREATE TABLE usuarios (
   trocar_senha TINYINT(1) NOT NULL DEFAULT 0,
   criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   atualizado_em DATETIME NULL,
-  CONSTRAINT fk_usuarios_perfis FOREIGN KEY (perfil_id) REFERENCES perfis(id)
+  CONSTRAINT fk_usuarios_perfis FOREIGN KEY (perfil_id) REFERENCES perfis(id),
+  INDEX idx_usuarios_nome (nome),
+  INDEX idx_usuarios_perfil (perfil_id)
 ) ENGINE=InnoDB;
 
 CREATE TABLE permissoes (
@@ -45,7 +53,13 @@ CREATE TABLE fornecedores (
   tipo_pessoa ENUM('PF','PJ') NOT NULL,
   ativo TINYINT(1) NOT NULL DEFAULT 1,
   criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  INDEX idx_fornecedor_razao (razao_social)
+  atualizado_em DATETIME NULL,
+  CONSTRAINT chk_fornecedor_documento CHECK (
+    (tipo_pessoa='PF' AND CHAR_LENGTH(documento)=11) OR
+    (tipo_pessoa='PJ' AND CHAR_LENGTH(documento)=14)
+  ),
+  INDEX idx_fornecedor_razao (razao_social),
+  INDEX idx_fornecedor_tipo (tipo_pessoa)
 ) ENGINE=InnoDB;
 
 CREATE TABLE fontes_recurso (
@@ -82,7 +96,7 @@ CREATE TABLE obrigacoes (
   fornecedor_id BIGINT UNSIGNED NOT NULL,
   numero VARCHAR(50) NOT NULL,
   ano SMALLINT UNSIGNED NOT NULL,
-  valor_total DECIMAL(15,2) NULL,
+  valor_total DECIMAL(15,2) NOT NULL,
   nr_sei_contratacao VARCHAR(50) NULL,
   data_inicio DATE NULL,
   data_fim DATE NULL,
@@ -93,7 +107,12 @@ CREATE TABLE obrigacoes (
   CONSTRAINT fk_obrigacao_tipo FOREIGN KEY (tipo_obrigacao_id) REFERENCES tipos_obrigacao(id),
   CONSTRAINT fk_obrigacao_fornecedor FOREIGN KEY (fornecedor_id) REFERENCES fornecedores(id),
   CONSTRAINT fk_obrigacao_usuario FOREIGN KEY (criado_por) REFERENCES usuarios(id),
-  UNIQUE KEY uq_obrigacao_tipo_numero_ano (tipo_obrigacao_id, numero, ano)
+  CONSTRAINT chk_obrigacao_ano CHECK (ano BETWEEN 2000 AND 2100),
+  CONSTRAINT chk_obrigacao_valor CHECK (valor_total > 0),
+  CONSTRAINT chk_obrigacao_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio),
+  UNIQUE KEY uq_obrigacao_tipo_numero_ano (tipo_obrigacao_id, numero, ano),
+  INDEX idx_obrigacao_fornecedor (fornecedor_id),
+  INDEX idx_obrigacao_ano (ano)
 ) ENGINE=InnoDB;
 
 CREATE TABLE obrigacao_fontes_recurso (
@@ -136,7 +155,12 @@ CREATE TABLE documentos_pagamento (
   CONSTRAINT fk_doc_obrigacao FOREIGN KEY (obrigacao_id) REFERENCES obrigacoes(id),
   CONSTRAINT fk_doc_tipo FOREIGN KEY (tipo_documento_id) REFERENCES tipos_documento_pagamento(id),
   CONSTRAINT fk_doc_usuario FOREIGN KEY (criado_por) REFERENCES usuarios(id),
-  UNIQUE KEY uq_documento_obrigacao_tipo_numero (obrigacao_id, tipo_documento_id, numero)
+  CONSTRAINT chk_doc_valor_bruto CHECK (valor_bruto > 0),
+  CONSTRAINT chk_doc_valor_liquido CHECK (valor_liquido > 0 AND valor_liquido <= valor_bruto),
+  UNIQUE KEY uq_documento_obrigacao_tipo_numero (obrigacao_id, tipo_documento_id, numero),
+  INDEX idx_documento_obrigacao (obrigacao_id),
+  INDEX idx_documento_emissao (data_emissao),
+  INDEX idx_documento_lancamento (data_lancamento)
 ) ENGINE=InnoDB;
 
 CREATE TABLE status_inspecao (
@@ -158,18 +182,21 @@ CREATE TABLE inspecoes (
   atualizado_em DATETIME NULL,
   CONSTRAINT fk_inspecao_documento FOREIGN KEY (documento_id) REFERENCES documentos_pagamento(id) ON DELETE CASCADE,
   CONSTRAINT fk_inspecao_status FOREIGN KEY (status_id) REFERENCES status_inspecao(id),
-  CONSTRAINT fk_inspecao_responsavel FOREIGN KEY (responsavel_id) REFERENCES usuarios(id)
+  CONSTRAINT fk_inspecao_responsavel FOREIGN KEY (responsavel_id) REFERENCES usuarios(id),
+  INDEX idx_inspecao_status (status_id)
 ) ENGINE=InnoDB;
 
 CREATE TABLE inspecao_historico (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   inspecao_id BIGINT UNSIGNED NOT NULL,
   status_id BIGINT UNSIGNED NOT NULL,
+  observacao VARCHAR(500) NULL,
   usuario_id BIGINT UNSIGNED NULL,
   ocorrido_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_ih_inspecao FOREIGN KEY (inspecao_id) REFERENCES inspecoes(id) ON DELETE CASCADE,
   CONSTRAINT fk_ih_status FOREIGN KEY (status_id) REFERENCES status_inspecao(id),
-  CONSTRAINT fk_ih_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+  CONSTRAINT fk_ih_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
+  INDEX idx_ih_inspecao_data (inspecao_id, ocorrido_em)
 ) ENGINE=InnoDB;
 
 CREATE TABLE parcelas_pagamento (
@@ -194,7 +221,12 @@ CREATE TABLE parcelas_pagamento (
   CONSTRAINT fk_parcela_fonte FOREIGN KEY (fonte_recurso_id) REFERENCES fontes_recurso(id),
   CONSTRAINT fk_parcela_tipo_recurso FOREIGN KEY (tipo_recurso_id) REFERENCES tipos_recurso(id),
   CONSTRAINT fk_parcela_usuario FOREIGN KEY (criado_por) REFERENCES usuarios(id),
-  UNIQUE KEY uq_parcela_documento_numero (documento_id, numero_parcela)
+  CONSTRAINT chk_parcela_numero CHECK (numero_parcela > 0),
+  CONSTRAINT chk_parcela_exercicio CHECK (exercicio_orcamentario BETWEEN 2000 AND 2100),
+  CONSTRAINT chk_parcela_valor CHECK (valor_liquido > 0),
+  UNIQUE KEY uq_parcela_documento_numero (documento_id, numero_parcela),
+  INDEX idx_parcela_documento (documento_id),
+  INDEX idx_parcela_empenho (numero_empenho)
 ) ENGINE=InnoDB;
 
 CREATE TABLE liquidacoes (
@@ -206,7 +238,9 @@ CREATE TABLE liquidacoes (
   criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   atualizado_em DATETIME NULL,
   CONSTRAINT fk_liquidacao_parcela FOREIGN KEY (parcela_id) REFERENCES parcelas_pagamento(id) ON DELETE CASCADE,
-  CONSTRAINT fk_liquidacao_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+  CONSTRAINT fk_liquidacao_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
+  CONSTRAINT chk_liquidacao_data CHECK (status <> 'LIQUIDADA' OR data_liquidacao IS NOT NULL),
+  INDEX idx_liquidacao_status (status)
 ) ENGINE=InnoDB;
 
 CREATE TABLE cmdf_etapas (
@@ -218,7 +252,9 @@ CREATE TABLE cmdf_etapas (
   criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   atualizado_em DATETIME NULL,
   CONSTRAINT fk_cmdf_parcela FOREIGN KEY (parcela_id) REFERENCES parcelas_pagamento(id) ON DELETE CASCADE,
-  CONSTRAINT fk_cmdf_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+  CONSTRAINT fk_cmdf_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
+  CONSTRAINT chk_cmdf_data CHECK (status <> 'LIQUIDADA' OR data_conclusao IS NOT NULL),
+  INDEX idx_cmdf_status (status)
 ) ENGINE=InnoDB;
 
 CREATE TABLE pagamentos (
@@ -233,7 +269,10 @@ CREATE TABLE pagamentos (
   criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   atualizado_em DATETIME NULL,
   CONSTRAINT fk_pagamento_parcela FOREIGN KEY (parcela_id) REFERENCES parcelas_pagamento(id) ON DELETE CASCADE,
-  CONSTRAINT fk_pagamento_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id)
+  CONSTRAINT fk_pagamento_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
+  CONSTRAINT chk_pagamento_pago CHECK (status <> 'PAGO' OR (data_pagamento IS NOT NULL AND valor_liquido_pago IS NOT NULL AND valor_liquido_pago > 0)),
+  INDEX idx_pagamento_status (status),
+  INDEX idx_pagamento_data (data_pagamento)
 ) ENGINE=InnoDB;
 
 CREATE TABLE anexos (
@@ -261,9 +300,11 @@ CREATE TABLE auditoria (
   ip VARCHAR(45) NULL,
   ocorrido_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_auditoria_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
-  INDEX idx_auditoria_entidade (entidade, entidade_id)
+  INDEX idx_auditoria_entidade (entidade, entidade_id),
+  INDEX idx_auditoria_data (ocorrido_em)
 ) ENGINE=InnoDB;
 
+-- Dados estruturais do sistema. Não são dados de homologação.
 INSERT INTO perfis (id,nome,descricao) VALUES
 (1,'Administrador','Acesso total'),
 (2,'Gestor','Cadastro de obrigações, documentos e programação'),
@@ -285,24 +326,18 @@ INSERT INTO permissoes (id,chave,nome) VALUES
 (10,'usuario.gerir','Gerenciar usuários'),
 (11,'perfil.gerir','Gerenciar perfis e permissões');
 
-INSERT INTO perfil_permissoes SELECT 1,id FROM permissoes;
-INSERT INTO perfil_permissoes VALUES
+INSERT INTO perfil_permissoes (perfil_id,permissao_id)
+SELECT 1,id FROM permissoes;
+INSERT INTO perfil_permissoes (perfil_id,permissao_id) VALUES
 (2,1),(2,2),(2,3),(2,5),(2,8),(2,9),
 (3,1),(3,4),
 (4,1),(4,6),
 (5,1),(5,7),
 (6,1);
 
-INSERT INTO fontes_recurso (codigo,nome) VALUES
-('100','Recursos próprios'),('1500','Tesouro'),('1700','Convênio');
-
-INSERT INTO naturezas_despesa (codigo,nome) VALUES
-('3.3.90.30','Material de consumo'),
-('3.3.90.39','Outros serviços de terceiros - PJ'),
-('3.3.90.40','Serviços de tecnologia da informação');
-
 INSERT INTO tipos_recurso (codigo,nome) VALUES
-('RRT','RRT'),('RDO','RDO');
+('RRT','RRT'),
+('RDO','RDO');
 
 INSERT INTO tipos_obrigacao (nome,exige_numero_ano) VALUES
 ('Contrato',1),
@@ -314,7 +349,11 @@ INSERT INTO tipos_obrigacao (nome,exige_numero_ano) VALUES
 ('Imposto',1);
 
 INSERT INTO tipos_documento_pagamento (nome,exige_numero) VALUES
-('Nota Fiscal',1),('Fatura',1),('Recibo',1),('Boleto',1),('Outro',1);
+('Nota Fiscal',1),
+('Fatura',1),
+('Recibo',1),
+('Boleto',1),
+('Outro',1);
 
 INSERT INTO status_inspecao (nome,permite_avancar,encerra_inspecao,ordem) VALUES
 ('Aguardando inspeção',0,0,10),

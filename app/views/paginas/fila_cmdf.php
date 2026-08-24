@@ -4,8 +4,29 @@ $tablePageSize=10;
 $tableFilters=[
  ['label'=>'Pesquisa geral','column'=>'*','type'=>'search','placeholder'=>'Documento, fornecedor ou empenho','class'=>'col-12 col-lg-4'],
  ['label'=>'Fornecedor','column'=>1,'type'=>'select','populate'=>true,'empty'=>'Todos','class'=>'col-12 col-md-4 col-lg-2'],
- ['label'=>'Status CMDF','column'=>5,'type'=>'select','populate'=>true,'empty'=>'Todos','class'=>'col-12 col-md-4 col-lg-2'],
+ ['label'=>'Status CMDF','column'=>6,'type'=>'select','populate'=>true,'empty'=>'Todos','class'=>'col-12 col-md-4 col-lg-2'],
 ];
 ?>
-<div class="card" data-admin-table data-page-size="<?=$tablePageSize?>"><div class="card-header"><h3 class="card-title">Parcelas encaminhadas à CMDF</h3></div><?php require BASE_PATH.'/app/views/components/admin_table_filters.php';?><div class="card-body p-0"><div class="table-responsive"><table class="table table-hover table-striped mb-0 align-middle"><thead><tr><th>Documento / Parcela</th><th>Fornecedor</th><th>Empenho</th><th>Valor</th><th>Liquidação</th><th>Status CMDF</th><th data-table-nosort style="min-width:560px">Processamento CMDF</th><th class="text-end portal-actions-cell" data-table-nosort>Ações</th></tr></thead><tbody><?php foreach($itens as $i):?><tr data-record-id="<?=e($i['parcela_id'])?>"><td><strong><?=e($i['tipo_documento'])?> <?=e($i['documento_numero'])?></strong><div class="small">Parcela <?=e($i['numero_parcela'])?></div></td><td><?=e($i['fornecedor'])?></td><td><?=e($i['empenho_numero'])?>/<?=e($i['empenho_ano'])?></td><td><?=money($i['valor_total'])?></td><td><?=e($i['data_liquidacao'])?></td><td><span class="badge <?=$i['status']==='CONCLUIDA'?'text-bg-success':($i['status']==='DEVOLVIDA'?'text-bg-danger':'text-bg-warning')?>"><?=e($i['status'])?></span></td><td><?php if($i['status']!=='CONCLUIDA'):?><form method="post" action="/documentos/<?=e($i['documento_id'])?>/parcelas/<?=e($i['parcela_id'])?>/cmdf" class="row g-1"><div class="col"><label class="form-label small mb-0">Envio SEINFRA</label><input type="date" name="data_envio_seinfra" class="form-control form-control-sm"></div><div class="col"><label class="form-label small mb-0">Despacho SEINFRA</label><input type="date" name="data_despacho_seinfra" class="form-control form-control-sm"></div><div class="col"><label class="form-label small mb-0">Envio Economia</label><input type="date" name="data_envio_economia" class="form-control form-control-sm"></div><div class="col"><label class="form-label small mb-0">Atendimento Economia</label><input type="date" name="data_atendimento_economia" class="form-control form-control-sm"></div><div class="col"><label class="form-label small mb-0">Conclusão</label><input type="date" name="data_conclusao" value="<?=date('Y-m-d')?>" class="form-control form-control-sm" required></div><div class="col-12 mt-1"><div class="input-group input-group-sm"><input name="observacoes" class="form-control" placeholder="Observações da CMDF"><button class="btn btn-dark"><i class="fa-solid fa-check me-1"></i>Concluir CMDF</button></div></div></form><?php else:?><span class="text-body-secondary">Etapa concluída em <?=e($i['data_conclusao']??'—')?>.</span><?php endif;?></td><td class="text-end portal-actions-cell"><div class="portal-action-group portal-table-actions justify-content-end"><a href="/documentos/<?=e($i['documento_id'])?>" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>Abrir</a></div></td></tr><?php endforeach;?><?php if(!$itens):?><tr data-table-empty><td colspan="8" class="text-center text-body-secondary py-4">Fila CMDF vazia.</td></tr><?php endif;?></tbody></table></div></div><?php require BASE_PATH.'/app/views/components/admin_table_footer.php';?></div>
+<div class="card" data-admin-table data-page-size="<?=$tablePageSize?>">
+  <div class="card-header"><h3 class="card-title">Parcelas na CMDF</h3></div>
+  <?php require BASE_PATH.'/app/views/components/admin_table_filters.php';?>
+  <div class="card-body p-0"><div class="table-responsive"><table class="table table-hover table-striped mb-0 align-middle">
+    <thead><tr><th>Documento / Parcela</th><th>Fornecedor</th><th>Empenho</th><th>Tipo</th><th>Valor líquido</th><th>Data liquidação</th><th>Status CMDF</th><th>Conclusão</th><th class="text-end portal-actions-cell" data-table-nosort>Ações</th></tr></thead>
+    <tbody>
+      <?php foreach($itens as $i):?><tr data-record-id="<?=e($i['parcela_id'])?>">
+        <td><strong><?=e($i['tipo_documento'])?> <?=e($i['documento_numero'])?></strong><div class="small text-body-secondary">Parcela <?=e($i['numero_parcela'])?></div></td>
+        <td><?=e($i['fornecedor'])?></td>
+        <td><?=e($i['numero_empenho'])?></td>
+        <td><?=e($i['tipo'])?></td>
+        <td><?=money($i['valor_liquido'])?></td>
+        <td><?=e($i['data_liquidacao']??'—')?></td>
+        <td><span class="badge <?=$i['status']==='LIQUIDADA'?'text-bg-success':($i['status']==='AGUARDANDO'?'text-bg-warning':'text-bg-secondary')?>"><?=e($i['status'])?></span></td>
+        <td><?=e($i['data_conclusao']??'—')?></td>
+        <td class="text-end portal-actions-cell"><div class="portal-action-group portal-table-actions justify-content-end"><a href="/cmdf/<?=e($i['parcela_id'])?>" class="btn btn-sm btn-outline-dark"><i class="fa-solid fa-building-columns" aria-hidden="true"></i><?=$i['status']==='AGUARDANDO'?'Processar':'Abrir'?></a></div></td>
+      </tr><?php endforeach;?>
+      <?php if(!$itens):?><tr data-table-empty><td colspan="9" class="text-center text-body-secondary py-4">Fila CMDF vazia.</td></tr><?php endif;?>
+    </tbody>
+  </table></div></div>
+  <?php require BASE_PATH.'/app/views/components/admin_table_footer.php';?>
+</div>
 <?php unset($tableId,$tablePageSize,$tableFilters);?>
