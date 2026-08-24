@@ -114,7 +114,7 @@ jobs:
             "/naturezas-despesa/9001/editar"
             "/tipos-recurso"
             "/tipos-recurso/novo"
-            "/tipos-recurso/9001/editar"
+            "/tipos-recurso/1/editar"
             "/tipos-documento"
             "/tipos-documento/novo"
             "/tipos-documento/1/editar"
@@ -148,6 +148,77 @@ jobs:
               exit 1
             fi
           done
+
+      - name: Validar combobox pesquisável de fornecedor
+        run: |
+          curl -fsS -b /tmp/pagamentos-cookies.txt http://127.0.0.1:8080/obrigacoes/nova > /tmp/obrigacao-nova.html
+          curl -fsS -b /tmp/pagamentos-cookies.txt http://127.0.0.1:8080/documentos/novo > /tmp/documento-novo.html
+          grep -q 'data-supplier-combobox' /tmp/obrigacao-nova.html
+          grep -q 'Digite o nome, razão social ou CPF/CNPJ' /tmp/obrigacao-nova.html
+          grep -q 'data-supplier-combobox' /tmp/documento-novo.html
+          grep -q 'data-obligation-select' /tmp/documento-novo.html
+
+      - name: Testar Inspeção até criação da parcela e Liquidação
+        shell: bash
+        env:
+          MYSQL_PWD: root
+        run: |
+          set -euo pipefail
+
+          # O documento 9002 começa em "Inspeção andamento" e não possui parcelas.
+          curl -fsS -b /tmp/pagamentos-cookies.txt http://127.0.0.1:8080/inspecoes/9002 > /tmp/inspecao-9002.html
+          TOKEN=$(sed -n 's/.*name="_token" value="\([^"]*\)".*/\1/p' /tmp/inspecao-9002.html | head -n 1)
+          STATUS_LIBERADA=$(mysql -h 127.0.0.1 -uroot -N -s -e "SELECT id FROM pagamentos.status_inspecao WHERE nome='Liberada liquidação de imposto' LIMIT 1;")
+          test -n "$TOKEN"
+          test -n "$STATUS_LIBERADA"
+
+          CODIGO=$(curl -sS \
+            -b /tmp/pagamentos-cookies.txt \
+            -c /tmp/pagamentos-cookies.txt \
+            -D /tmp/inspecao-post.headers \
+            -o /tmp/inspecao-post.body \
+            -w '%{http_code}' \
+            --data-urlencode "_token=$TOKEN" \
+            --data-urlencode "status_id=$STATUS_LIBERADA" \
+            --data-urlencode "data_conclusao=2026-08-24" \
+            --data-urlencode "observacao=Smoke: liberada para programação" \
+            http://127.0.0.1:8080/inspecoes/9002)
+          test "$CODIGO" = "302"
+          grep -Eiq '^Location: /programacao/9002' /tmp/inspecao-post.headers
+
+          curl -fsS -b /tmp/pagamentos-cookies.txt http://127.0.0.1:8080/programacao/9002 > /tmp/programacao-9002.html
+          grep -q 'Adicionar parcela 1' /tmp/programacao-9002.html
+          TOKEN=$(sed -n 's/.*name="_token" value="\([^"]*\)".*/\1/p' /tmp/programacao-9002.html | head -n 1)
+          TIPO_RECURSO=$(mysql -h 127.0.0.1 -uroot -N -s -e "SELECT id FROM pagamentos.tipos_recurso WHERE codigo='RRT' LIMIT 1;")
+          test -n "$TOKEN"
+          test -n "$TIPO_RECURSO"
+
+          CODIGO=$(curl -sS \
+            -b /tmp/pagamentos-cookies.txt \
+            -c /tmp/pagamentos-cookies.txt \
+            -D /tmp/parcela-post.headers \
+            -o /tmp/parcela-post.body \
+            -w '%{http_code}' \
+            --data-urlencode "_token=$TOKEN" \
+            --data-urlencode "numero_empenho=2026NE009999" \
+            --data-urlencode "natureza_despesa_id=9003" \
+            --data-urlencode "exercicio_orcamentario=2026" \
+            --data-urlencode "fonte_recurso_id=9001" \
+            --data-urlencode "tipo_recurso_id=$TIPO_RECURSO" \
+            --data-urlencode "valor_liquido=4500.00" \
+            --data-urlencode "tipo=IMPOSTO" \
+            --data-urlencode "historico_parcela=Smoke de programação" \
+            http://127.0.0.1:8080/programacao/9002/parcelas)
+          test "$CODIGO" = "302"
+          grep -Eiq '^Location: /programacao/9002' /tmp/parcela-post.headers
+
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.parcelas_pagamento WHERE documento_id=9002;" | grep '^1$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT ROUND(SUM(valor_liquido),2) FROM pagamentos.parcelas_pagamento WHERE documento_id=9002;" | grep '^4500.00$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.liquidacoes l JOIN pagamentos.parcelas_pagamento p ON p.id=l.parcela_id WHERE p.documento_id=9002 AND l.status='AGUARDANDO';" | grep '^1$'
+
+          curl -fsS -b /tmp/pagamentos-cookies.txt http://127.0.0.1:8080/programacao/9002 > /tmp/programacao-fechada.html
+          grep -q 'Programação concluída' /tmp/programacao-fechada.html
+          grep -q 'já estão disponíveis, individualmente, na fila de Liquidação' /tmp/programacao-fechada.html
 
       - name: Verificar log de runtime
         if: always()
