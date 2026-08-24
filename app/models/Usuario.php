@@ -11,4 +11,13 @@ final class Usuario{
         $st=$this->db->prepare("INSERT INTO usuarios(perfil_id,nome,login,email,senha_hash) VALUES(?,?,?,?,?)");
         $st->execute([$perfil,$nome,$login,trim((string)($d['email']??''))?:null,password_hash($senha,PASSWORD_DEFAULT)]);
     }
+    public function alternarAtivo(int $id,int $usuarioAtualId):bool{
+        if($id<=0)throw new InvalidArgumentException('Usuário inválido.');
+        if($id===$usuarioAtualId)throw new RuntimeException('Não é permitido desativar o próprio usuário logado.');
+        $st=$this->db->prepare("SELECT ativo FROM usuarios WHERE id=?");$st->execute([$id]);$ativo=$st->fetchColumn();
+        if($ativo===false)throw new RuntimeException('Usuário não encontrado.');
+        $novo=(int)$ativo===1?0:1;
+        $q=$this->db->prepare("UPDATE usuarios SET ativo=?,atualizado_em=NOW() WHERE id=?");$q->execute([$novo,$id]);
+        return $novo===1;
+    }
 }
