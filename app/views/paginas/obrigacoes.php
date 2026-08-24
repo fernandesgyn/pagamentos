@@ -6,8 +6,22 @@ $tableFilters=[
  ['label'=>'Tipo','column'=>0,'type'=>'select','populate'=>true,'empty'=>'Todos','class'=>'col-12 col-md-4 col-lg-2'],
  ['label'=>'Fornecedor','column'=>2,'type'=>'select','populate'=>true,'empty'=>'Todos','class'=>'col-12 col-md-4 col-lg-2'],
 ];
-$fornecedorSelecionado=(int)($_GET['fornecedor_id']??0);
+$pageRightActions=[[ 'href'=>'/obrigacoes/nova','label'=>'Nova obrigação','icon'=>'fa-plus','class'=>'btn btn-sm btn-primary' ]];
+require BASE_PATH.'/app/views/components/page_actions.php';
 ?>
-<div class="row g-3"><div class="col-xl-4"><div class="card"><div class="card-header"><h3 class="card-title">Nova obrigação</h3></div><form method="post" action="/obrigacoes"><div class="card-body"><div class="mb-3"><label class="form-label">Tipo</label><select name="tipo_obrigacao_id" class="form-select" required><option value="">Selecione</option><?php foreach($tipos as $t):?><option value="<?=e($t['id'])?>"><?=e($t['nome'])?></option><?php endforeach;?></select></div><div class="mb-3"><label class="form-label">Fornecedor</label><select name="fornecedor_id" class="form-select" required><option value="">Selecione</option><?php foreach($fornecedores as $f):?><option value="<?=e($f['id'])?>" <?=((int)$f['id']===$fornecedorSelecionado)?'selected':''?>><?=e($f['nome'])?></option><?php endforeach;?></select></div><div class="row"><div class="col-7 mb-3"><label class="form-label">Número</label><input name="numero" class="form-control" required></div><div class="col-5 mb-3"><label class="form-label">Ano</label><input name="ano" type="number" min="2000" max="2100" value="<?=date('Y')?>" class="form-control" required></div></div><div class="mb-3"><label class="form-label">Valor global</label><input name="valor_global" class="form-control" placeholder="0,00"></div><div class="mb-3"><label class="form-label">SEI</label><input name="sei" class="form-control"></div><div class="mb-3"><label class="form-label">Objeto</label><textarea name="objeto" class="form-control" rows="4"></textarea></div></div><div class="card-footer"><button class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>Salvar</button></div></form></div></div>
-<div class="col-xl-8"><div class="card" data-admin-table data-page-size="<?=$tablePageSize?>"><div class="card-header"><h3 class="card-title">Obrigações cadastradas</h3></div><?php require BASE_PATH.'/app/views/components/admin_table_filters.php';?><div class="card-body p-0"><div class="table-responsive"><table class="table table-hover table-striped mb-0 align-middle"><thead><tr><th>Tipo</th><th>Nº/Ano</th><th>Fornecedor</th><th>Valor</th><th>Objeto</th><th class="text-end portal-actions-cell" data-table-nosort>Ações</th></tr></thead><tbody><?php foreach($obrigacoes as $o):?><tr data-record-id="<?=e($o['id'])?>"><td><?=e($o['tipo'])?></td><td><strong><?=e($o['numero'])?>/<?=e($o['ano'])?></strong></td><td><?=e($o['fornecedor'])?></td><td class="money"><?=money($o['valor_global'])?></td><td title="<?=e((string)$o['objeto'])?>"><?=e(mb_strimwidth((string)$o['objeto'],0,60,'…'))?></td><td class="text-end portal-actions-cell"><div class="portal-action-group portal-table-actions justify-content-end"><a href="/documentos?obrigacao_id=<?=e($o['id'])?>" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-receipt" aria-hidden="true"></i>Novo documento</a></div></td></tr><?php endforeach;?><?php if(!$obrigacoes):?><tr data-table-empty><td colspan="6" class="text-center text-body-secondary py-4">Nenhuma obrigação cadastrada.</td></tr><?php endif;?></tbody></table></div></div><?php require BASE_PATH.'/app/views/components/admin_table_footer.php';?></div></div></div>
-<?php unset($tableId,$tablePageSize,$tableFilters,$fornecedorSelecionado);?>
+<div class="card" data-admin-table data-page-size="<?=$tablePageSize?>">
+  <div class="card-header"><h3 class="card-title">Obrigações cadastradas</h3></div>
+  <?php require BASE_PATH.'/app/views/components/admin_table_filters.php';?>
+  <div class="card-body p-0"><div class="table-responsive"><table class="table table-hover table-striped mb-0 align-middle">
+    <thead><tr><th>Tipo</th><th>Nº/Ano</th><th>Fornecedor</th><th>Valor</th><th>Objeto</th><th class="text-end portal-actions-cell" data-table-nosort>Ações</th></tr></thead>
+    <tbody>
+      <?php foreach($obrigacoes as $o):?><tr data-record-id="<?=e($o['id'])?>">
+        <td><?=e($o['tipo'])?></td><td><strong><?=e($o['numero'])?>/<?=e($o['ano'])?></strong></td><td><?=e($o['fornecedor'])?></td><td class="money"><?=money($o['valor_global'])?></td><td title="<?=e((string)$o['objeto'])?>"><?=e(mb_strimwidth((string)$o['objeto'],0,60,'…'))?></td>
+        <td class="text-end portal-actions-cell"><div class="portal-action-group portal-table-actions justify-content-end"><a href="/documentos/novo?obrigacao_id=<?=e($o['id'])?>" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-receipt" aria-hidden="true"></i>Novo documento</a></div></td>
+      </tr><?php endforeach;?>
+      <?php if(!$obrigacoes):?><tr data-table-empty><td colspan="6" class="text-center text-body-secondary py-4">Nenhuma obrigação cadastrada.</td></tr><?php endif;?>
+    </tbody>
+  </table></div></div>
+  <?php require BASE_PATH.'/app/views/components/admin_table_footer.php';?>
+</div>
+<?php unset($tableId,$tablePageSize,$tableFilters);?>
