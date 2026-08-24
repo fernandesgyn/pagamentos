@@ -1,6 +1,9 @@
 <?php
 $pageBackUrl='/inspecoes';
 $pageRightActions=[[ 'href'=>'/documentos/'.$doc['id'],'label'=>'Ver documento','icon'=>'fa-file-lines','class'=>'btn btn-sm btn-outline-secondary' ]];
+if((bool)($doc['permite_avancar']??false)&&Auth::can('parcela.gerir')){
+    $pageRightActions[]=['href'=>'/programacao/'.$doc['id'],'label'=>'Programar parcelas','icon'=>'fa-list-check','class'=>'btn btn-sm btn-primary'];
+}
 require BASE_PATH.'/app/views/components/page_actions.php';
 ?>
 <div class="card mb-3">
@@ -13,6 +16,13 @@ require BASE_PATH.'/app/views/components/page_actions.php';
   </div></div>
 </div>
 
+<?php if((bool)($doc['permite_avancar']??false)):?>
+<div class="alert alert-success d-flex flex-wrap justify-content-between align-items-center gap-2">
+  <div><i class="fa-solid fa-circle-check me-1"></i>Este documento está liberado pela Inspeção para criação das parcelas na Programação.</div>
+  <?php if(Auth::can('parcela.gerir')):?><a href="/programacao/<?=e($doc['id'])?>" class="btn btn-sm btn-success"><i class="fa-solid fa-arrow-right me-1"></i>Ir para Programação</a><?php else:?><span class="small">O usuário responsável pela Programação já pode prosseguir.</span><?php endif;?>
+</div>
+<?php endif;?>
+
 <form method="post" action="/inspecoes/<?=e($doc['id'])?>" class="card card-primary card-outline">
   <div class="card-header"><h3 class="card-title">Atualizar inspeção</h3></div>
   <div class="card-body">
@@ -23,7 +33,7 @@ require BASE_PATH.'/app/views/components/page_actions.php';
         <select name="status_id" class="form-select" required>
           <?php foreach($status as $s):?><option value="<?=e($s['id'])?>" <?=((int)$s['id']===(int)$doc['status_id'])?'selected':''?>><?=e($s['nome'])?></option><?php endforeach;?>
         </select>
-        <div class="form-text">Somente “Liberada liquidação de imposto” libera o documento para Programação.</div>
+        <div class="form-text">Ao salvar como “Liberada liquidação de imposto”, o documento segue para Programação. Se seu perfil também puder programar, o sistema abre a tela de parcelas automaticamente.</div>
       </div>
       <div class="col-md-3"><label class="form-label">Data de conclusão</label><input type="date" name="data_conclusao" value="<?=e($doc['data_conclusao']??'')?>" class="form-control"><div class="form-text">Usada nos status que encerram a inspeção.</div></div>
       <div class="col-12"><label class="form-label">Observação</label><textarea name="observacao" class="form-control" maxlength="500" rows="3" placeholder="Registro para o histórico da inspeção"></textarea></div>

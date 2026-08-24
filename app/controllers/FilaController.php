@@ -19,7 +19,19 @@ final class FilaController
     }
     public function salvarInspecao(string $documentoId):void{
         Auth::requirePermission('inspecao.gerir');
-        try{$this->fluxo->atualizarInspecao((int)$documentoId,$_POST);$_SESSION['flash']=['success','Inspeção atualizada.'];}
+        try{
+            $this->fluxo->atualizarInspecao((int)$documentoId,$_POST);
+            $doc=$this->fluxo->documento((int)$documentoId);
+            if($doc && (bool)$doc['permite_avancar']){
+                if(Auth::can('parcela.gerir')){
+                    $_SESSION['flash']=['success','Inspeção liberada. Agora cadastre as parcelas da Programação.'];
+                    redirect('/programacao/'.$documentoId);
+                }
+                $_SESSION['flash']=['success','Inspeção liberada. O documento já está disponível para o usuário responsável pela Programação.'];
+                redirect('/inspecoes');
+            }
+            $_SESSION['flash']=['success','Inspeção atualizada.'];
+        }
         catch(Throwable $e){$_SESSION['flash']=['danger',$e->getMessage()];}
         redirect('/inspecoes/'.$documentoId);
     }
@@ -44,7 +56,14 @@ final class FilaController
     }
     public function adicionarParcela(string $documentoId):void{
         Auth::requirePermission('parcela.gerir');
-        try{$this->fluxo->adicionarParcela((int)$documentoId,$_POST);$_SESSION['flash']=['success','Parcela adicionada.'];}
+        try{
+            $this->fluxo->adicionarParcela((int)$documentoId,$_POST);
+            if($this->fluxo->documentoProgramacaoFechada((int)$documentoId)){
+                $_SESSION['flash']=['success','Parcela adicionada e Programação fechada. As parcelas já estão disponíveis na fila de Liquidação.'];
+            }else{
+                $_SESSION['flash']=['success','Parcela adicionada. Continue a Programação até fechar o valor líquido do documento.'];
+            }
+        }
         catch(Throwable $e){$_SESSION['flash']=['danger',$e->getMessage()];}
         redirect('/programacao/'.$documentoId);
     }
