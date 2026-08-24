@@ -1,0 +1,16 @@
+:root{--portal-action-gap:.5rem}
+.portal-action-group{display:inline-flex!important;align-items:center;flex-wrap:wrap;gap:var(--portal-action-gap)!important;vertical-align:middle}
+.portal-action-group>form{display:inline-flex;margin:0!important}
+.portal-actions-cell{width:1%;white-space:nowrap}
+.portal-table-actions{display:flex!important;width:max-content;max-width:none;margin-left:auto;flex-wrap:nowrap!important}
+.portal-table-actions .btn{display:inline-flex;align-items:center;justify-content:center;gap:.35rem;white-space:nowrap}
+[data-admin-table] .table td,[data-admin-table] .table th{vertical-align:middle}
+[data-admin-table] .table th button{white-space:nowrap}
+[data-admin-table] .card-footer .pagination{flex-wrap:wrap}
+@media (min-width:992px){
+  [data-admin-table]>.card-body.border-bottom>.row{flex-wrap:nowrap}
+  [data-admin-table]>.card-body.border-bottom>.row>[class*="col-lg-4"]{flex:1.45 1 0;width:auto;min-width:0}
+  [data-admin-table]>.card-body.border-bottom>.row>[class*="col-lg-2"]{flex:1 1 0;width:auto;min-width:0}
+  [data-admin-table]>.card-body.border-bottom>.row>.col-md-auto{flex:0 0 auto;width:auto}
+}
+@media (max-width:767.98px){.portal-table-actions{flex-wrap:wrap!important}}
