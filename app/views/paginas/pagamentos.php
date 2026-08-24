@@ -7,5 +7,39 @@ $tableFilters=[
  ['label'=>'Fornecedor','column'=>1,'type'=>'select','populate'=>true,'empty'=>'Todos','class'=>'col-12 col-md-4 col-lg-2'],
 ];
 ?>
-<div class="card" data-admin-table data-page-size="<?=$tablePageSize?>"><div class="card-header"><h3 class="card-title">Fila de pagamento</h3></div><?php require BASE_PATH.'/app/views/components/admin_table_filters.php';?><div class="card-body p-0"><div class="table-responsive"><table class="table table-hover table-striped mb-0 align-middle"><thead><tr><th>Documento / Parcela</th><th>Fornecedor</th><th>Empenho</th><th>Valor da parcela</th><th>CMDF</th><th>Status</th><th style="min-width:360px">Pagamento</th><th class="text-end portal-actions-cell" data-table-nosort>Ações</th></tr></thead><tbody><?php foreach($pagamentos as $p):?><tr data-record-id="<?=e($p['parcela_id'])?>"><td><strong><?=e($p['tipo_documento'])?> <?=e($p['documento_numero'])?></strong><div class="small text-body-secondary">Parcela <?=e($p['numero_parcela'])?></div></td><td><?=e($p['fornecedor'])?></td><td><?=e($p['empenho_numero'])?>/<?=e($p['empenho_ano'])?></td><td class="money"><?=money($p['valor_total'])?></td><td><?=e($p['data_cmdf'])?></td><td><span class="badge <?=$p['status']==='PAGO'?'text-bg-success':'text-bg-warning'?>"><?=e($p['status'])?></span></td><td><?php if($p['status']!=='PAGO'):?><form method="post" action="/documentos/<?=e($p['documento_id'])?>/parcelas/<?=e($p['parcela_id'])?>/pagar" class="row g-1"><div class="col-4"><input type="date" name="data_pagamento" value="<?=date('Y-m-d')?>" class="form-control form-control-sm" required></div><div class="col-3"><input name="valor_liquido_pago" class="form-control form-control-sm" placeholder="Valor líquido"></div><div class="col-3"><input name="benner_ap" class="form-control form-control-sm" placeholder="Benner AP"></div><div class="col-2"><button class="btn btn-success btn-sm w-100"><i class="fa-solid fa-money-check-dollar me-1"></i>Pagar</button></div><div class="col-12 mt-1"><input name="historico_pagamento" class="form-control form-control-sm" placeholder="Histórico do pagamento"></div></form><?php else:?><div><strong><?=e($p['data_pagamento'])?></strong> · <?=money($p['valor_liquido_pago'])?></div><div class="small text-body-secondary"><?=e($p['benner_ap'])?></div><?php endif;?></td><td class="text-end portal-actions-cell"><div class="portal-action-group portal-table-actions justify-content-end"><a href="/documentos/<?=e($p['documento_id'])?>" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>Abrir</a></div></td></tr><?php endforeach;?><?php if(!$pagamentos):?><tr data-table-empty><td colspan="8" class="text-center text-body-secondary py-4">Nenhuma parcela liberada pela CMDF para pagamento.</td></tr><?php endif;?></tbody></table></div></div><?php require BASE_PATH.'/app/views/components/admin_table_footer.php';?></div>
+<div class="card" data-admin-table data-page-size="<?=$tablePageSize?>">
+  <div class="card-header"><h3 class="card-title">Fila de Pagamento</h3></div>
+  <?php require BASE_PATH.'/app/views/components/admin_table_filters.php';?>
+  <div class="card-body p-0"><div class="table-responsive"><table class="table table-hover table-striped mb-0 align-middle">
+    <thead><tr><th>Documento / Parcela</th><th>Fornecedor</th><th>Empenho</th><th>Tipo</th><th>Valor líquido</th><th>Status</th><th>CMDF</th><th style="min-width:420px">Pagamento</th><th class="text-end portal-actions-cell" data-table-nosort>Ações</th></tr></thead>
+    <tbody>
+      <?php foreach($pagamentos as $p):?><tr data-record-id="<?=e($p['parcela_id'])?>">
+        <td><strong><?=e($p['tipo_documento'])?> <?=e($p['documento_numero'])?></strong><div class="small text-body-secondary">Parcela <?=e($p['numero_parcela'])?></div></td>
+        <td><?=e($p['fornecedor'])?></td>
+        <td><?=e($p['numero_empenho'])?></td>
+        <td><?=e($p['tipo'])?></td>
+        <td class="money"><?=money($p['valor_liquido'])?></td>
+        <td><span class="badge <?=$p['status']==='PAGO'?'text-bg-success':'text-bg-warning'?>"><?=e($p['status'])?></span></td>
+        <td><?=e($p['data_cmdf']??'—')?></td>
+        <td>
+          <?php if($p['status']!=='PAGO'):?>
+            <form method="post" action="/documentos/<?=e($p['documento_id'])?>/parcelas/<?=e($p['parcela_id'])?>/pagar" class="row g-1">
+              <?=Csrf::field()?>
+              <div class="col-md-3"><input type="date" name="data_pagamento" value="<?=date('Y-m-d')?>" class="form-control form-control-sm" required></div>
+              <div class="col-md-3"><input name="valor_liquido_pago" class="form-control form-control-sm" placeholder="Valor líquido" value="<?=e((string)$p['valor_liquido'])?>"></div>
+              <div class="col-md-3"><input name="benner_ap" class="form-control form-control-sm" placeholder="Benner AP"></div>
+              <div class="col-md-3"><button class="btn btn-success btn-sm w-100"><i class="fa-solid fa-money-check-dollar me-1"></i>Pagar</button></div>
+              <div class="col-12 mt-1"><input name="historico_pagamento" class="form-control form-control-sm" placeholder="Histórico do pagamento"></div>
+            </form>
+          <?php else:?>
+            <div><strong><?=e($p['data_pagamento'])?></strong> · <?=money($p['valor_liquido_pago'])?></div><div class="small text-body-secondary"><?=e($p['benner_ap']??'')?></div>
+          <?php endif;?>
+        </td>
+        <td class="text-end portal-actions-cell"><div class="portal-action-group portal-table-actions justify-content-end"><a href="/documentos/<?=e($p['documento_id'])?>" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>Abrir</a></div></td>
+      </tr><?php endforeach;?>
+      <?php if(!$pagamentos):?><tr data-table-empty><td colspan="9" class="text-center text-body-secondary py-4">Nenhuma parcela liberada pela CMDF para pagamento.</td></tr><?php endif;?>
+    </tbody>
+  </table></div></div>
+  <?php require BASE_PATH.'/app/views/components/admin_table_footer.php';?>
+</div>
 <?php unset($tableId,$tablePageSize,$tableFilters);?>
