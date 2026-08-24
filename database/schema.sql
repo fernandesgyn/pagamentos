@@ -363,6 +363,6 @@ INSERT INTO status_inspecao (nome,permite_avancar,encerra_inspecao,ordem) VALUES
 ('Pendente de complementação',0,0,30),
 ('Devolvida para o gestor',0,0,40),
 ('Retornada para inspeção',0,0,50),
-('Finalizada',0,1,60),
+('Finalizada',1,1,60),
 ('Liberada liquidação de imposto',1,1,70),
 ('Cancelada',0,1,80);
