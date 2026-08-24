@@ -19,23 +19,48 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=10
+
     steps:
       - uses: actions/checkout@v4
+
       - name: Versão do PHP
         run: php -v
+
       - name: Extensões obrigatórias
         run: php -r "exit(extension_loaded('pdo') && extension_loaded('mbstring') ? 0 : 1);"
+
       - name: Lint PHP
         run: find app config public scripts -name '*.php' -print0 | xargs -0 -n1 php -l
-      - name: Validar arquitetura de listagens e formulários
+
+      - name: Garantir arquitetura sem migrations
+        run: |
+          test -f database/schema.sql
+          test ! -d database/migrations
+          ! grep -q 'DROP DATABASE' database/schema.sql
+          grep -q 'CREATE TABLE obrigacoes' database/schema.sql
+          grep -q 'CREATE TABLE documentos_pagamento' database/schema.sql
+          grep -q 'CREATE TABLE parcelas_pagamento' database/schema.sql
+          grep -q 'CREATE TABLE liquidacoes' database/schema.sql
+          grep -q 'CREATE TABLE cmdf_etapas' database/schema.sql
+          grep -q 'CREATE TABLE pagamentos' database/schema.sql
+
+      - name: Bloquear referências legadas
+        run: |
+          if grep -R -nE 'empenhos_pagamento|parcela_componentes|tipos_componente_pagamento|empenho_pagamento_id|valor_global|data_documento|data_maxima_liquidacao|limite_anotacao|tipo_servico|sei_pagamento|soma_componentes|historico_liquidacao|data_envio_seinfra|data_despacho_seinfra|data_envio_economia|data_atendimento_economia|CONCLUIDA' app config --include='*.php'; then
+            echo 'Foram encontradas referências da arquitetura antiga.'
+            exit 1
+          fi
+
+      - name: Validar arquitetura das telas
         run: |
           test -f public/assets/js/admin-table.js
           test -f public/assets/css/admin-table.css
+          test -f public/assets/js/forms.js
           test -f app/views/components/admin_table_filters.php
           test -f app/views/components/admin_table_footer.php
           test -f app/views/components/page_actions.php
           grep -q '/assets/js/admin-table.js' app/views/layouts/main.php
-          grep -q '/assets/css/admin-table.css' app/views/layouts/main.php
+          grep -q '/assets/js/forms.js' app/views/layouts/main.php
 
           for arquivo in \
             app/views/paginas/obrigacoes.php \
@@ -53,31 +78,55 @@ jobs:
               grep -q 'admin_table_footer.php' "$arquivo"
           done
 
-          test -f app/views/paginas/documento_form.php
-          test -f app/views/paginas/obrigacao_form.php
-          test -f app/views/paginas/usuarios/form.php
-          test -f app/views/paginas/perfis/form.php
-          test -f app/views/paginas/cadastros/form.php
+          for arquivo in \
+            app/views/paginas/obrigacao_form.php \
+            app/views/paginas/documento_form.php \
+            app/views/paginas/inspecao_form.php \
+            app/views/paginas/programacao_form.php \
+            app/views/paginas/liquidacao_form.php \
+            app/views/paginas/cmdf_form.php \
+            app/views/paginas/usuarios/form.php \
+            app/views/paginas/perfis/form.php \
+            app/views/paginas/cadastros/form.php; do
+              test -f "$arquivo"
+          done
 
           grep -q "'/documentos/novo'" config/routes.php
           grep -q "'/obrigacoes/nova'" config/routes.php
+          grep -q "'/inspecoes/{documentoId}'" config/routes.php
+          grep -q "'/programacao/{documentoId}'" config/routes.php
+          grep -q "'/liquidacoes/{parcelaId}'" config/routes.php
+          grep -q "'/cmdf/{parcelaId}'" config/routes.php
           grep -q "'/fornecedores'" config/routes.php
-          grep -q "'/empenhos-pagamento'" config/routes.php
+          grep -q "'/fontes-recurso'" config/routes.php
+          grep -q "'/naturezas-despesa'" config/routes.php
+          grep -q "'/tipos-recurso'" config/routes.php
           grep -q "'/tipos-documento'" config/routes.php
           grep -q "'/tipos-obrigacao'" config/routes.php
           grep -q "'/perfis'" config/routes.php
+          ! grep -q "'/empenhos-pagamento'" config/routes.php
           ! grep -q "\['GET','/cadastros'" config/routes.php
 
-      - name: Validar schema MySQL
-        env:
-          MYSQL_PWD: root
-        run: mysql -h 127.0.0.1 -uroot < database/schema.sql
-      - name: Verificar tabelas centrais
+      - name: Provisionar schema MySQL do zero
         env:
           MYSQL_PWD: root
         run: |
-          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='pagamentos';" | grep -E '^[1-9][0-9]*$'
-          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.status_inspecao WHERE permite_avancar=1;" | grep '^2$'
+          mysql -h 127.0.0.1 -uroot -e "DROP DATABASE IF EXISTS pagamentos;"
+          mysql -h 127.0.0.1 -uroot < database/schema.sql
+
+      - name: Validar schema consolidado
+        env:
+          MYSQL_PWD: root
+        run: |
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='pagamentos';" | grep '^23$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.status_inspecao WHERE permite_avancar=1;" | grep '^1$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT nome FROM pagamentos.status_inspecao WHERE permite_avancar=1;" | grep '^Liberada liquidação de imposto$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.tipos_obrigacao;" | grep '^7$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.tipos_recurso WHERE codigo IN ('RRT','RDO');" | grep '^2$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='pagamentos' AND table_name IN ('empenhos_pagamento','parcela_componentes','tipos_componente_pagamento');" | grep '^0$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.fontes_recurso;" | grep '^0$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.naturezas_despesa;" | grep '^0$'
+
       - name: Carregar seeds de homologação
         env:
           MYSQL_PWD: root
@@ -85,29 +134,39 @@ jobs:
           mysql -h 127.0.0.1 -uroot pagamentos < database/seeds/001_cadastros_teste.sql
           mysql -h 127.0.0.1 -uroot pagamentos < database/seeds/002_fluxo_documentos_inspecoes_teste.sql
           mysql -h 127.0.0.1 -uroot pagamentos < database/seeds/003_programacao_liquidacao_cmdf_pagamento_teste.sql
-      - name: Validar cenários de homologação
+
+      - name: Validar massa e relacionamentos
         env:
           MYSQL_PWD: root
         run: |
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.usuarios WHERE id BETWEEN 9000 AND 9999;" | grep '^6$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.fornecedores WHERE id BETWEEN 9000 AND 9999;" | grep '^5$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.fornecedores WHERE id=9005 AND tipo_pessoa='PF' AND CHAR_LENGTH(documento)=11;" | grep '^1$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.obrigacoes WHERE id BETWEEN 9000 AND 9999;" | grep '^5$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.obrigacao_fontes_recurso WHERE obrigacao_id=9001;" | grep '^2$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.obrigacao_naturezas_despesa WHERE obrigacao_id=9001;" | grep '^2$'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.documentos_pagamento WHERE id BETWEEN 9000 AND 9999;" | grep '^10$'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.inspecoes WHERE id BETWEEN 9000 AND 9999;" | grep '^10$'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.parcelas_pagamento WHERE id BETWEEN 9000 AND 9999;" | grep '^5$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT ROUND(SUM(valor_liquido),2) FROM pagamentos.parcelas_pagamento WHERE documento_id=9001;" | grep '^9000.00$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT ROUND(valor_liquido,2) FROM pagamentos.documentos_pagamento WHERE id=9001;" | grep '^9000.00$'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.pagamentos WHERE id BETWEEN 9000 AND 9999 AND status='PAGO';" | grep '^2$'
-          mysql -h 127.0.0.1 -uroot -N -e "SELECT ROUND(SUM(valor_total),2) FROM pagamentos.parcelas_pagamento WHERE documento_id=9001;" | grep '^10000.00$'
-          mysql -h 127.0.0.1 -uroot -N -e "SELECT ROUND(SUM(valor),2) FROM pagamentos.parcela_componentes WHERE parcela_id=9003;" | grep '^10000.00$'
+
       - name: Validar independência das parcelas
         env:
           MYSQL_PWD: root
         run: |
-          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.parcelas_pagamento WHERE documento_id=9001;" | grep '^2$'
-          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.parcelas_pagamento p JOIN pagamentos.pagamentos pg ON pg.parcela_id=p.id WHERE p.documento_id=9001 AND p.id=9001 AND pg.status='PAGO';" | grep '^1$'
-          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.parcelas_pagamento p JOIN pagamentos.liquidacoes l ON l.parcela_id=p.id WHERE p.documento_id=9001 AND p.id=9002 AND l.status='AGUARDANDO';" | grep '^1$'
-          mysql -h 127.0.0.1 -uroot -N -e "SELECT CONCAT(pg.status,'|',l2.status) FROM pagamentos.pagamentos pg JOIN pagamentos.parcelas_pagamento p1 ON p1.id=pg.parcela_id JOIN pagamentos.parcelas_pagamento p2 ON p2.documento_id=p1.documento_id AND p2.id<>p1.id JOIN pagamentos.liquidacoes l2 ON l2.parcela_id=p2.id WHERE p1.id=9001 AND pg.status='PAGO' LIMIT 1;" | grep '^PAGO|AGUARDANDO$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.parcelas_pagamento WHERE documento_id=9001;" | grep '^3$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.pagamentos WHERE parcela_id=9001 AND status='PAGO';" | grep '^1$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.liquidacoes l JOIN pagamentos.cmdf_etapas c ON c.parcela_id=l.parcela_id WHERE l.parcela_id=9002 AND l.status='LIQUIDADA' AND c.status='AGUARDANDO';" | grep '^1$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.liquidacoes l LEFT JOIN pagamentos.cmdf_etapas c ON c.parcela_id=l.parcela_id WHERE l.parcela_id=9003 AND l.status='AGUARDANDO' AND c.id IS NULL;" | grep '^1$'
+
       - name: Validar limpeza dos seeds
         env:
           MYSQL_PWD: root
         run: |
           mysql -h 127.0.0.1 -uroot pagamentos < database/seeds/999_limpar_testes.sql
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.documentos_pagamento WHERE id BETWEEN 9000 AND 9999;" | grep '^0$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.obrigacoes WHERE id BETWEEN 9000 AND 9999;" | grep '^0$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.fornecedores WHERE id BETWEEN 9000 AND 9999;" | grep '^0$'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.usuarios WHERE id BETWEEN 9000 AND 9999;" | grep '^0$'
