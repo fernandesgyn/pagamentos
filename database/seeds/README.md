@@ -72,7 +72,7 @@ Assim, fornecedores diferentes podem usar a mesma referência, mas o mesmo forne
 |---|---:|---:|---|
 | NF 50 | R$ 10.000,00 | R$ 9.000,00 | Liberada para programação; três parcelas independentes fecham o valor líquido |
 | NF 51 | R$ 5.000,00 | R$ 4.500,00 | Inspeção andamento |
-| Fatura 77 | R$ 12.000,00 | R$ 11.000,00 | Finalizada, mas não liberada para programação |
+| Fatura 77 | R$ 12.000,00 | R$ 11.000,00 | **Finalizada e liberada para Programação** |
 | NF 900 | R$ 4.500,00 | R$ 4.200,00 | Devolvida para o gestor |
 | NF 901 | R$ 8.000,00 | R$ 7.500,00 | Liberada; parcela liquidada aguardando CMDF |
 | Recibo 10 | R$ 3.000,00 | R$ 2.700,00 | Fluxo completo até pagamento |
@@ -80,6 +80,15 @@ Assim, fornecedores diferentes podem usar a mesma referência, mas o mesmo forne
 | NF 888 | R$ 7.000,00 | R$ 6.500,00 | Inspeção cancelada |
 | NF 52 | R$ 6.200,00 | R$ 5.800,00 | Aguardando inspeção |
 | Fatura 78 | R$ 6.000,00 | R$ 5.600,00 | Retornada para inspeção |
+
+## Regra de avanço da Inspeção
+
+Existem **dois status que encerram a Inspeção e liberam o documento para Programação**:
+
+- `Finalizada`;
+- `Liberada liquidação de imposto`.
+
+Os demais status não disponibilizam o documento para Programação.
 
 ## Independência das parcelas
 
@@ -101,7 +110,7 @@ Uma parcela não precisa esperar a irmã concluir Liquidação, CMDF ou Pagament
 
 ## Regras cobertas pelos seeds
 
-1. somente `Liberada liquidação de imposto` permite Programação;
+1. `Finalizada` e `Liberada liquidação de imposto` permitem Programação;
 2. um fornecedor pode possuir N obrigações;
 3. a mesma referência de obrigação pode existir para fornecedores diferentes, mas não pode ser duplicada no mesmo fornecedor;
 4. uma obrigação pode possuir 1..N Fontes de recurso e 1..N Naturezas da despesa;

@@ -78,14 +78,19 @@ Status:
 - Liberada liquidação de imposto;
 - Cancelada.
 
-Somente **Liberada liquidação de imposto** libera o documento para Programação. `Finalizada` encerra a inspeção, mas não libera a etapa seguinte.
+**Dois status encerram a Inspeção e liberam o documento para Programação:**
 
-Quando a inspeção é salva como **Liberada liquidação de imposto**:
+- **Finalizada**;
+- **Liberada liquidação de imposto**.
+
+Os demais status não liberam a próxima etapa.
+
+Quando a inspeção é salva como **Finalizada** ou **Liberada liquidação de imposto**:
 
 - se o usuário também possuir permissão de Programação, o sistema o redireciona diretamente para `/programacao/{documentoId}`;
 - se o usuário for apenas Inspetor, o sistema informa que o documento já está disponível para o responsável pela Programação.
 
-Se o documento já estiver liberado, a própria tela de Inspeção exibe a ação **Ir para Programação** para perfis autorizados.
+Se o documento já estiver em um dos dois status liberadores, a própria tela de Inspeção exibe a ação **Ir para Programação** para perfis autorizados.
 
 ## 6. Programação
 
@@ -189,11 +194,11 @@ Permissões padrão:
 - Pagamento;
 - Cadastros auxiliares.
 
-Fluxo típico: preparar cadastros -> cadastrar obrigação -> cadastrar documento -> aguardar Inspeção -> programar parcelas até fechar o valor líquido -> parcelas entram automaticamente na fila de Liquidação -> registrar pagamentos liberados pela CMDF.
+Fluxo típico: preparar cadastros -> cadastrar obrigação -> cadastrar documento -> aguardar Inspeção -> programar parcelas após **Finalizada** ou **Liberada liquidação de imposto** -> fechar o valor líquido -> parcelas entram automaticamente na fila de Liquidação -> registrar pagamentos liberados pela CMDF.
 
 ### Inspetor
 
-Permissões padrão: Painel e Inspeção. Analisa documentos, altera status, registra histórico e usa **Liberada liquidação de imposto** quando o documento puder seguir. A liberação torna o documento imediatamente disponível para Programação.
+Permissões padrão: Painel e Inspeção. Analisa documentos, altera status e registra histórico. Quando o documento estiver apto a seguir, pode concluir a inspeção como **Finalizada** ou **Liberada liquidação de imposto**; ambos disponibilizam o documento para Programação.
 
 ### Liquidação
 
@@ -232,4 +237,5 @@ Permissão padrão: Painel. Não possui permissão de alteração no fluxo padr�
 - banco consolidado em `database/schema.sql`, sem migrations;
 - seeds de homologação separados do provisionamento de produção;
 - CI de schema/lint e smoke test HTTP das rotas para detectar warnings, notices, variáveis indefinidas e erros fatais antes do merge;
-- smoke test funcional específico de `Inspeção -> Programação -> criação de parcela -> Liquidação`.
+- smoke test funcional específico de `Finalizada -> Programação -> criação de parcela -> Liquidação`;
+- smoke test funcional de `Liberada liquidação de imposto -> Programação -> criação de parcela -> Liquidação`.

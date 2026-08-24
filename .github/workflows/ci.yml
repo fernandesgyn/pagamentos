@@ -122,8 +122,8 @@ jobs:
           MYSQL_PWD: root
         run: |
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='pagamentos';" | grep '^23$'
-          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.status_inspecao WHERE permite_avancar=1;" | grep '^1$'
-          mysql -h 127.0.0.1 -uroot -N -e "SELECT nome FROM pagamentos.status_inspecao WHERE permite_avancar=1;" | grep '^Liberada liquidação de imposto$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.status_inspecao WHERE permite_avancar=1;" | grep '^2$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.status_inspecao WHERE nome IN ('Finalizada','Liberada liquidação de imposto') AND permite_avancar=1 AND encerra_inspecao=1;" | grep '^2$'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.tipos_obrigacao;" | grep '^7$'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.tipos_recurso WHERE codigo IN ('RRT','RDO');" | grep '^2$'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='pagamentos' AND table_name IN ('empenhos_pagamento','parcela_componentes','tipos_componente_pagamento');" | grep '^0$'
@@ -163,6 +163,7 @@ jobs:
           mysql -h 127.0.0.1 -uroot -N -e "SELECT ROUND(SUM(valor_liquido),2) FROM pagamentos.parcelas_pagamento WHERE documento_id=9001;" | grep '^9000.00$'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT ROUND(valor_liquido,2) FROM pagamentos.documentos_pagamento WHERE id=9001;" | grep '^9000.00$'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.pagamentos WHERE id BETWEEN 9000 AND 9999 AND status='PAGO';" | grep '^2$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.inspecoes i JOIN pagamentos.status_inspecao s ON s.id=i.status_id WHERE i.documento_id=9003 AND s.nome='Finalizada' AND s.permite_avancar=1;" | grep '^1$'
 
       - name: Validar cardinalidade Fornecedor 1 para N Obrigações
         shell: bash
