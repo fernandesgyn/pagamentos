@@ -2,12 +2,17 @@
 declare(strict_types=1);
 final class HomeController{
   private FluxoPagamento $fluxo;
-  public function __construct(){ Auth::requireLogin(); $this->fluxo=new FluxoPagamento(); }
+  public function __construct(){Auth::requireLogin();$this->fluxo=new FluxoPagamento();}
   public function index():void{Auth::requirePermission('dashboard.ver');View::render('paginas/dashboard',['titulo'=>'Painel','dados'=>$this->fluxo->dashboard()]);}
-  public function obrigacoes():void{Auth::requirePermission('obrigacao.gerir');View::render('paginas/obrigacoes',['titulo'=>'Obrigações','obrigacoes'=>$this->fluxo->obrigacoes(),'fornecedores'=>$this->fluxo->fornecedores(),'tipos'=>$this->fluxo->tiposObrigacao()]);}
-  public function salvarObrigacao():void{Auth::requirePermission('obrigacao.gerir');try{$tipo=(int)($_POST['tipo_obrigacao_id']??0);$numero=trim((string)($_POST['numero']??''));ObrigacaoRegra::validarNumero($tipo,$numero);$this->fluxo->criarObrigacao($_POST);$_SESSION['flash']=['success','Obrigação cadastrada.'];}catch(Throwable $e){$_SESSION['flash']=['danger',$e->getMessage()];}redirect('/obrigacoes');}
-  public function documentos():void{Auth::requirePermission('documento.gerir');View::render('paginas/documentos',['titulo'=>'Documentos para pagamento','documentos'=>$this->fluxo->documentos(),'obrigacoes'=>$this->fluxo->obrigacoes(),'tipos'=>$this->fluxo->tiposDocumento()]);}
-  public function salvarDocumento():void{Auth::requirePermission('documento.gerir');try{$id=$this->fluxo->criarDocumento($_POST);$_SESSION['flash']=['success','Documento lançado e enviado à fila de inspeção.'];redirect('/documentos/'.$id);}catch(Throwable $e){$_SESSION['flash']=['danger',$e->getMessage()];redirect('/documentos');}}
+
+  public function obrigacoes():void{Auth::requirePermission('obrigacao.gerir');View::render('paginas/obrigacoes',['titulo'=>'Obrigações','obrigacoes'=>$this->fluxo->obrigacoes()]);}
+  public function novaObrigacao():void{Auth::requirePermission('obrigacao.gerir');View::render('paginas/obrigacao_form',['titulo'=>'Nova obrigação','fornecedores'=>$this->fluxo->fornecedores(),'tipos'=>$this->fluxo->tiposObrigacao()]);}
+  public function salvarObrigacao():void{Auth::requirePermission('obrigacao.gerir');try{$tipo=(int)($_POST['tipo_obrigacao_id']??0);$numero=trim((string)($_POST['numero']??''));ObrigacaoRegra::validarNumero($tipo,$numero);$this->fluxo->criarObrigacao($_POST);$_SESSION['flash']=['success','Obrigação cadastrada.'];redirect('/obrigacoes');}catch(Throwable $e){$_SESSION['flash']=['danger',$e->getMessage()];redirect('/obrigacoes/nova');}}
+
+  public function documentos():void{Auth::requirePermission('documento.gerir');View::render('paginas/documentos',['titulo'=>'Documentos para pagamento','documentos'=>$this->fluxo->documentos()]);}
+  public function novoDocumento():void{Auth::requirePermission('documento.gerir');View::render('paginas/documento_form',['titulo'=>'Novo documento','obrigacoes'=>$this->fluxo->obrigacoes(),'tipos'=>$this->fluxo->tiposDocumento()]);}
+  public function salvarDocumento():void{Auth::requirePermission('documento.gerir');try{$id=$this->fluxo->criarDocumento($_POST);$_SESSION['flash']=['success','Documento lançado e enviado à fila de inspeção.'];redirect('/documentos/'.$id);}catch(Throwable $e){$_SESSION['flash']=['danger',$e->getMessage()];redirect('/documentos/novo');}}
+
   public function documento(string $id):void{Auth::requirePermission('dashboard.ver');$doc=$this->fluxo->documento((int)$id);if(!$doc){http_response_code(404);echo 'Documento não encontrado';return;}View::render('paginas/documento',['titulo'=>'Documento '.$doc['numero'],'doc'=>$doc,'status'=>$this->fluxo->statusInspecao(),'parcelas'=>$this->fluxo->parcelas((int)$id),'empenhos'=>$this->fluxo->empenhos(),'componentes'=>$this->fluxo->componentes(),'fechado'=>$this->fluxo->documentoFechado((int)$id)]);}
   public function inspecao(string $id):void{Auth::requirePermission('inspecao.gerir');try{$this->fluxo->atualizarInspecao((int)$id,$_POST);$_SESSION['flash']=['success','Inspeção atualizada.'];}catch(Throwable $e){$_SESSION['flash']=['danger',$e->getMessage()];}redirect('/documentos/'.$id);}
   public function parcela(string $id):void{Auth::requirePermission('parcela.gerir');try{$this->fluxo->adicionarParcela((int)$id,$_POST);$_SESSION['flash']=['success','Parcela adicionada.'];}catch(Throwable $e){$_SESSION['flash']=['danger',$e->getMessage()];}redirect('/documentos/'.$id);}
