@@ -1,6 +1,6 @@
 USE pagamentos;
 
--- IDs de homologação: 9000-9999.
+-- Massa exclusiva de homologação. IDs reservados: 9000-9999.
 -- Senha comum dos usuários abaixo: Teste@123
 SET @senha_teste = '$2y$12$d4LZ3Zgv1yVaMimavBEgfuUGZsUX2tgs2nABvrHZOTZUBXq3KUHnq';
 
@@ -22,26 +22,28 @@ VALUES
 ON DUPLICATE KEY UPDATE
  perfil_id=VALUES(perfil_id),nome=VALUES(nome),email=VALUES(email),senha_hash=VALUES(senha_hash),ativo=1,trocar_senha=0;
 
-INSERT INTO fornecedores (id,nome,documento,ativo)
+INSERT INTO fornecedores (id,razao_social,documento,tipo_pessoa,ativo)
 VALUES
-(9001,'ALFA SERVIÇOS E TECNOLOGIA LTDA','12345678000195',1),
-(9002,'BETA ENGENHARIA E MANUTENÇÃO LTDA','23456789000106',1),
-(9003,'GAMA SOLUÇÕES ADMINISTRATIVAS S.A.','34567890000117',1),
-(9004,'DELTA COMÉRCIO E SUPRIMENTOS LTDA','45678901000128',1),
-(9005,'EPSILON CONSULTORIA LTDA','56789012000139',1)
-ON DUPLICATE KEY UPDATE nome=VALUES(nome),documento=VALUES(documento),ativo=1;
-
-INSERT INTO empenhos_pagamento
-(id,numero,ano,natureza,exercicio,origem_recurso,fonte,cmdf,ativo)
-VALUES
-(9001,'2026NE000101',2026,'3.3.90.39',2026,'Recursos próprios','100','CMDF-001/2026',1),
-(9002,'2026NE000102',2026,'3.3.90.39',2026,'Recursos próprios','100','CMDF-002/2026',1),
-(9003,'2026NE000103',2026,'3.3.90.40',2026,'Tesouro','1500','CMDF-003/2026',1),
-(9004,'2026NE000104',2026,'3.3.90.30',2026,'Recursos próprios','100','CMDF-004/2026',1),
-(9005,'2026NE000105',2026,'3.3.90.39',2026,'Convênio','1700','CMDF-005/2026',1),
-(9006,'2026NE000106',2026,'3.3.90.39',2026,'Recursos próprios','100','CMDF-006/2026',1),
-(9007,'2026NE000107',2026,'3.3.90.39',2026,'Tesouro','1500','CMDF-007/2026',1),
-(9008,'2026NE000108',2026,'3.3.90.30',2026,'Recursos próprios','100','CMDF-008/2026',1),
-(9009,'2025NE000999',2025,'3.3.90.39',2025,'Recursos próprios','100','CMDF-999/2025',1)
+(9001,'ALFA SERVIÇOS E TECNOLOGIA LTDA','12345678000195','PJ',1),
+(9002,'BETA ENGENHARIA E MANUTENÇÃO LTDA','23456789000106','PJ',1),
+(9003,'GAMA SOLUÇÕES ADMINISTRATIVAS S.A.','34567890000117','PJ',1),
+(9004,'DELTA COMÉRCIO E SUPRIMENTOS LTDA','45678901000128','PJ',1),
+(9005,'MARIA DA SILVA','12345678901','PF',1)
 ON DUPLICATE KEY UPDATE
- numero=VALUES(numero),ano=VALUES(ano),natureza=VALUES(natureza),exercicio=VALUES(exercicio),origem_recurso=VALUES(origem_recurso),fonte=VALUES(fonte),cmdf=VALUES(cmdf),ativo=1;
+ razao_social=VALUES(razao_social),documento=VALUES(documento),tipo_pessoa=VALUES(tipo_pessoa),ativo=1;
+
+INSERT INTO fontes_recurso (id,codigo,nome,ativo)
+VALUES
+(9001,'100','Recursos próprios',1),
+(9002,'1500','Tesouro',1),
+(9003,'1700','Convênio',1),
+(9004,'1800','Recursos vinculados',1)
+ON DUPLICATE KEY UPDATE codigo=VALUES(codigo),nome=VALUES(nome),ativo=1;
+
+INSERT INTO naturezas_despesa (id,codigo,nome,ativo)
+VALUES
+(9001,'3.3.90.30','Material de consumo',1),
+(9002,'3.3.90.36','Outros serviços de terceiros - PF',1),
+(9003,'3.3.90.39','Outros serviços de terceiros - PJ',1),
+(9004,'3.3.90.40','Serviços de tecnologia da informação',1)
+ON DUPLICATE KEY UPDATE codigo=VALUES(codigo),nome=VALUES(nome),ativo=1;
