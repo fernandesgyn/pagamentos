@@ -1,6 +1,9 @@
 <?php
 $pageBackUrl='/programacao';
 $pageRightActions=[[ 'href'=>'/documentos/'.$doc['id'],'label'=>'Ver documento','icon'=>'fa-file-lines','class'=>'btn btn-sm btn-outline-secondary' ]];
+if($fechada&&Auth::can('liquidacao.gerir')){
+    $pageRightActions[]=['href'=>'/liquidacoes','label'=>'Abrir fila de Liquidação','icon'=>'fa-check-double','class'=>'btn btn-sm btn-success'];
+}
 require BASE_PATH.'/app/views/components/page_actions.php';
 $programado=0.0;foreach($parcelas as $parcela)$programado+=(float)$parcela['valor_liquido'];
 $saldo=round((float)$doc['valor_liquido']-$programado,2);
@@ -15,7 +18,14 @@ $proxima=empty($parcelas)?1:(max(array_map(static fn($p)=>(int)$p['numero_parcel
 </div>
 
 <?php if(!$doc['permite_avancar']):?><div class="alert alert-warning">Este documento não está liberado pela Inspeção para programação.</div><?php endif;?>
-<?php if($fechada):?><div class="alert alert-success"><i class="fa-solid fa-circle-check me-1"></i>A programação está fechada. Cada parcela pode seguir individualmente para Liquidação.</div><?php endif;?>
+<?php if($fechada):?>
+<div class="alert alert-success d-flex flex-wrap justify-content-between align-items-center gap-2">
+  <div><i class="fa-solid fa-circle-check me-1"></i><strong>Programação concluída.</strong> A soma das parcelas fechou o valor líquido do documento e todas elas já estão disponíveis, individualmente, na fila de Liquidação.</div>
+  <?php if(Auth::can('liquidacao.gerir')):?><a href="/liquidacoes" class="btn btn-sm btn-success"><i class="fa-solid fa-arrow-right me-1"></i>Ir para Liquidação</a><?php else:?><span class="small">Nenhuma ação adicional é necessária: o perfil de Liquidação já pode processá-las.</span><?php endif;?>
+</div>
+<?php else:?>
+<div class="alert alert-info"><i class="fa-solid fa-circle-info me-1"></i>Cadastre as parcelas até o saldo chegar a R$ 0,00. Nesse momento, o sistema encerra automaticamente a Programação e libera as parcelas para Liquidação.</div>
+<?php endif;?>
 
 <?php if(!$fechada&&$doc['permite_avancar']):?>
 <form method="post" action="/programacao/<?=e($doc['id'])?>/parcelas" class="card card-primary card-outline mb-3">
@@ -44,7 +54,7 @@ $proxima=empty($parcelas)?1:(max(array_map(static fn($p)=>(int)$p['numero_parcel
   <div class="card-body p-0"><div class="table-responsive"><table class="table table-hover mb-0 align-middle">
     <thead><tr><th>Parcela</th><th>Empenho</th><th>Natureza</th><th>Exercício</th><th>Fonte</th><th>Recurso</th><th>Tipo</th><th>Valor líquido</th><th>Vencimento</th><th>Liquidação</th><th class="text-end">Ação</th></tr></thead>
     <tbody>
-      <?php foreach($parcelas as $p):?><tr><td><strong><?=e($p['numero_parcela'])?></strong></td><td><?=e($p['numero_empenho'])?></td><td><?=e($p['natureza_codigo'])?></td><td><?=e($p['exercicio_orcamentario'])?></td><td><?=e($p['fonte_codigo'])?></td><td><?=e($p['tipo_recurso_codigo'])?></td><td><?=e($p['tipo'])?></td><td><?=money($p['valor_liquido'])?></td><td><?=e($p['data_vencimento']??'—')?></td><td><?=e($p['status_liquidacao']??'AGUARDANDO')?></td><td class="text-end"><?php if($fechada&&Auth::can('liquidacao.gerir')):?><a href="/liquidacoes/<?=e($p['id'])?>" class="btn btn-sm btn-outline-success"><i class="fa-solid fa-check-double me-1"></i>Liquidar</a><?php endif;?></td></tr><?php endforeach;?>
+      <?php foreach($parcelas as $p):?><tr><td><strong><?=e($p['numero_parcela'])?></strong></td><td><?=e($p['numero_empenho'])?></td><td><?=e($p['natureza_codigo'])?></td><td><?=e($p['exercicio_orcamentario'])?></td><td><?=e($p['fonte_codigo'])?></td><td><?=e($p['tipo_recurso_codigo'])?></td><td><?=e($p['tipo'])?></td><td><?=money($p['valor_liquido'])?></td><td><?=e($p['data_vencimento']??'—')?></td><td><span class="badge <?=$fechada?'text-bg-warning':'text-bg-secondary'?>"><?=e($p['status_liquidacao']??'AGUARDANDO')?></span></td><td class="text-end"><?php if($fechada&&Auth::can('liquidacao.gerir')):?><a href="/liquidacoes/<?=e($p['id'])?>" class="btn btn-sm btn-outline-success"><i class="fa-solid fa-check-double me-1"></i>Liquidar</a><?php elseif($fechada):?><span class="small text-body-secondary">Enviada à Liquidação</span><?php else:?><span class="small text-body-secondary">Aguardando fechamento</span><?php endif;?></td></tr><?php endforeach;?>
       <?php if(!$parcelas):?><tr><td colspan="11" class="text-center text-body-secondary py-4">Nenhuma parcela programada.</td></tr><?php endif;?>
     </tbody>
   </table></div></div>
