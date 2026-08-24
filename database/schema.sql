@@ -270,7 +270,7 @@ CREATE TABLE pagamentos (
   atualizado_em DATETIME NULL,
   CONSTRAINT fk_pagamento_parcela FOREIGN KEY (parcela_id) REFERENCES parcelas_pagamento(id) ON DELETE CASCADE,
   CONSTRAINT fk_pagamento_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
-  CONSTRAINT chk_pagamento_pago CHECK (status <> 'PAGO' OR (data_pagamento IS NOT NULL AND valor_liquido_pago IS NOT NULL AND valor_liquido_pago >= 0)),
+  CONSTRAINT chk_pagamento_pago CHECK (status <> 'PAGO' OR (data_pagamento IS NOT NULL AND valor_liquido_pago IS NOT NULL AND valor_liquido_pago > 0)),
   INDEX idx_pagamento_status (status),
   INDEX idx_pagamento_data (data_pagamento)
 ) ENGINE=InnoDB;
