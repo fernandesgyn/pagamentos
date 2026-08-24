@@ -34,13 +34,15 @@ Cadastro: `/obrigacoes/nova`
 Passos:
 
 1. Selecionar o tipo.
-2. Pesquisar e selecionar o fornecedor.
+2. No campo único **Fornecedor**, digitar parte do nome, razão social, CPF ou CNPJ. O sistema mostra os fornecedores correspondentes no próprio campo e o usuário seleciona um resultado.
 3. Informar número e ano.
 4. Informar Valor Total da Obrigação.
 5. Informar, quando aplicável, Nr. SEI da Contratação e datas de início/fim.
 6. Vincular uma ou mais Fontes de recurso.
 7. Vincular uma ou mais Naturezas da despesa.
 8. Salvar.
+
+Não existe um campo separado “Pesquisar fornecedor” mais um `select`: a pesquisa e a seleção formam um único **combobox pesquisável**.
 
 ## 4. Documento
 
@@ -49,8 +51,8 @@ Cadastro: `/documentos/novo`
 
 Passos:
 
-1. Pesquisar e selecionar o fornecedor.
-2. Selecionar somente entre as obrigações daquele fornecedor.
+1. No campo único **Fornecedor**, digitar parte do nome, razão social, CPF ou CNPJ e selecionar um dos resultados exibidos.
+2. Após selecionar o fornecedor, o campo Obrigação exibe somente as obrigações daquele fornecedor.
 3. Selecionar o tipo de documento.
 4. Informar número e Data de emissão.
 5. Informar Data do atesto e Data de envio à COOINSP, quando disponíveis.
@@ -78,6 +80,13 @@ Status:
 
 Somente **Liberada liquidação de imposto** libera o documento para Programação. `Finalizada` encerra a inspeção, mas não libera a etapa seguinte.
 
+Quando a inspeção é salva como **Liberada liquidação de imposto**:
+
+- se o usuário também possuir permissão de Programação, o sistema o redireciona diretamente para `/programacao/{documentoId}`;
+- se o usuário for apenas Inspetor, o sistema informa que o documento já está disponível para o responsável pela Programação.
+
+Se o documento já estiver liberado, a própria tela de Inspeção exibe a ação **Ir para Programação** para perfis autorizados.
+
 ## 6. Programação
 
 Fila: `/programacao`  
@@ -97,6 +106,17 @@ Cada parcela recebe:
 - Justificativa da ordem cronológica opcional.
 
 A numeração da parcela é automática. A soma nunca pode ultrapassar o valor líquido do documento e a Programação só fecha quando a soma for exatamente igual a esse valor.
+
+**Passagem para a próxima fase:** não existe um segundo botão administrativo para “enviar” as parcelas. Ao cadastrar a última parcela que faz a soma fechar exatamente o valor líquido do documento, a Programação é encerrada automaticamente e todas as parcelas passam a ficar disponíveis na fila de Liquidação, cada uma em `AGUARDANDO`.
+
+A tela mostra claramente:
+
+- Valor líquido do documento;
+- Valor já programado;
+- Saldo restante;
+- número automático da próxima parcela;
+- mensagem de **Programação concluída** quando o saldo chega a zero;
+- situação individual de Liquidação de cada parcela.
 
 ## 7. Liquidação
 
@@ -169,11 +189,11 @@ Permissões padrão:
 - Pagamento;
 - Cadastros auxiliares.
 
-Fluxo típico: preparar cadastros -> cadastrar obrigação -> cadastrar documento -> aguardar Inspeção -> programar parcelas -> registrar pagamentos liberados pela CMDF.
+Fluxo típico: preparar cadastros -> cadastrar obrigação -> cadastrar documento -> aguardar Inspeção -> programar parcelas até fechar o valor líquido -> parcelas entram automaticamente na fila de Liquidação -> registrar pagamentos liberados pela CMDF.
 
 ### Inspetor
 
-Permissões padrão: Painel e Inspeção. Analisa documentos, altera status, registra histórico e usa **Liberada liquidação de imposto** quando o documento puder seguir.
+Permissões padrão: Painel e Inspeção. Analisa documentos, altera status, registra histórico e usa **Liberada liquidação de imposto** quando o documento puder seguir. A liberação torna o documento imediatamente disponível para Programação.
 
 ### Liquidação
 
@@ -211,4 +231,5 @@ Permissão padrão: Painel. Não possui permissão de alteração no fluxo padr�
 - PDO com prepared statements;
 - banco consolidado em `database/schema.sql`, sem migrations;
 - seeds de homologação separados do provisionamento de produção;
-- CI de schema/lint e smoke test HTTP das rotas para detectar warnings, notices, variáveis indefinidas e erros fatais antes do merge.
+- CI de schema/lint e smoke test HTTP das rotas para detectar warnings, notices, variáveis indefinidas e erros fatais antes do merge;
+- smoke test funcional específico de `Inspeção -> Programação -> criação de parcela -> Liquidação`.
