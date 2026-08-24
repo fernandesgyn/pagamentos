@@ -14,8 +14,6 @@ $fornecedorSelecionado=(int)($_GET['fornecedor_id']??0);
       <div class="col-md-2"><label class="form-label">Ano *</label><input name="ano" type="number" min="2000" max="2100" value="<?=date('Y')?>" class="form-control" required></div>
       <div class="col-md-3"><label class="form-label">Valor global</label><input name="valor_global" class="form-control" placeholder="0,00"></div>
       <div class="col-md-3"><label class="form-label">SEI</label><input name="sei" class="form-control"></div>
-      <div class="col-md-3"><label class="form-label">Data início</label><input type="date" name="data_inicio" class="form-control"></div>
-      <div class="col-md-3"><label class="form-label">Data fim</label><input type="date" name="data_fim" class="form-control"></div>
       <div class="col-12"><label class="form-label">Objeto</label><textarea name="objeto" class="form-control" rows="4"></textarea></div>
     </div>
   </div>
