@@ -27,14 +27,16 @@ jobs:
         run: php -r "exit(extension_loaded('pdo') && extension_loaded('mbstring') ? 0 : 1);"
       - name: Lint PHP
         run: find app config public scripts -name '*.php' -print0 | xargs -0 -n1 php -l
-      - name: Validar padrão das tabelas administrativas
+      - name: Validar arquitetura de listagens e formulários
         run: |
           test -f public/assets/js/admin-table.js
           test -f public/assets/css/admin-table.css
           test -f app/views/components/admin_table_filters.php
           test -f app/views/components/admin_table_footer.php
+          test -f app/views/components/page_actions.php
           grep -q '/assets/js/admin-table.js' app/views/layouts/main.php
           grep -q '/assets/css/admin-table.css' app/views/layouts/main.php
+
           for arquivo in \
             app/views/paginas/obrigacoes.php \
             app/views/paginas/documentos.php \
@@ -43,12 +45,29 @@ jobs:
             app/views/paginas/fila_liquidacoes.php \
             app/views/paginas/fila_cmdf.php \
             app/views/paginas/pagamentos.php \
-            app/views/paginas/usuarios.php \
-            app/views/paginas/cadastros.php; do
+            app/views/paginas/usuarios/index.php \
+            app/views/paginas/perfis/index.php \
+            app/views/paginas/cadastros/index.php; do
               grep -q 'data-admin-table' "$arquivo"
               grep -q 'Ações' "$arquivo"
               grep -q 'admin_table_footer.php' "$arquivo"
           done
+
+          test -f app/views/paginas/documento_form.php
+          test -f app/views/paginas/obrigacao_form.php
+          test -f app/views/paginas/usuarios/form.php
+          test -f app/views/paginas/perfis/form.php
+          test -f app/views/paginas/cadastros/form.php
+
+          grep -q "'/documentos/novo'" config/routes.php
+          grep -q "'/obrigacoes/nova'" config/routes.php
+          grep -q "'/fornecedores'" config/routes.php
+          grep -q "'/empenhos-pagamento'" config/routes.php
+          grep -q "'/tipos-documento'" config/routes.php
+          grep -q "'/tipos-obrigacao'" config/routes.php
+          grep -q "'/perfis'" config/routes.php
+          ! grep -q "\['GET','/cadastros'" config/routes.php
+
       - name: Validar schema MySQL
         env:
           MYSQL_PWD: root
