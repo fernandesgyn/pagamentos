@@ -50,7 +50,7 @@ final class PagamentoFinal
             $valor,
             trim((string)($d['historico_pagamento']??''))?:null,
             trim((string)($d['benner_ap']??''))?:null,
-            (int)(Auth::user()['id']??0)?:null,
+            Auth::id(),
             $parcelaId,
         ]);
         if($q->rowCount()!==1)throw new RuntimeException('Não foi possível registrar o pagamento da parcela.');

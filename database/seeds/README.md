@@ -18,6 +18,8 @@ mysql -u root -p pagamentos < database/seeds/002_fluxo_documentos_inspecoes_test
 mysql -u root -p pagamentos < database/seeds/003_programacao_liquidacao_cmdf_pagamento_teste.sql
 ```
 
+Os três seeds são preparados para serem executados novamente na mesma base de homologação. A CI faz duas cargas consecutivas e exige que a massa continue consistente.
+
 Para remover somente os dados de homologação:
 
 ```bash
@@ -47,6 +49,22 @@ O seed `001` cria:
 - os 6 usuários de teste.
 
 RRT e RDO são dados estruturais do `schema.sql` e, por isso, não são recriados pelos seeds.
+
+## Obrigações e cardinalidade
+
+O seed `002` cria 6 obrigações. Ele contém propositalmente duas referências **Contrato 101/2026** associadas a fornecedores diferentes. Esse cenário valida a regra:
+
+```text
+Fornecedor 1 -> N Obrigações
+```
+
+A unicidade é aplicada dentro do fornecedor:
+
+```text
+fornecedor + tipo da obrigação + número + ano
+```
+
+Assim, fornecedores diferentes podem usar a mesma referência, mas o mesmo fornecedor não pode cadastrar duas vezes a mesma obrigação.
 
 ## Cenários de documentos e inspeção
 
@@ -84,14 +102,16 @@ Uma parcela não precisa esperar a irmã concluir Liquidação, CMDF ou Pagament
 ## Regras cobertas pelos seeds
 
 1. somente `Liberada liquidação de imposto` permite Programação;
-2. uma obrigação pode possuir 1..N Fontes de recurso e 1..N Naturezas da despesa;
-3. a Natureza e a Fonte usadas na parcela precisam pertencer à obrigação do documento;
-4. o número do empenho é informado diretamente na parcela;
-5. a soma das parcelas não pode ultrapassar o valor líquido do documento;
-6. nenhuma parcela pode ser liquidada antes de a programação fechar exatamente o valor líquido do documento;
-7. somente Liquidação `LIQUIDADA` libera a CMDF daquela parcela;
-8. somente CMDF `LIQUIDADA` libera o Pagamento daquela parcela;
-9. parcelas do mesmo documento podem permanecer em fases diferentes;
-10. fornecedor suporta Pessoa Física (CPF) e Pessoa Jurídica (CNPJ).
+2. um fornecedor pode possuir N obrigações;
+3. a mesma referência de obrigação pode existir para fornecedores diferentes, mas não pode ser duplicada no mesmo fornecedor;
+4. uma obrigação pode possuir 1..N Fontes de recurso e 1..N Naturezas da despesa;
+5. a Natureza e a Fonte usadas na parcela precisam pertencer à obrigação do documento;
+6. o número do empenho é informado diretamente na parcela;
+7. a soma das parcelas não pode ultrapassar o valor líquido do documento;
+8. nenhuma parcela pode ser liquidada antes de a programação fechar exatamente o valor líquido do documento;
+9. somente Liquidação `LIQUIDADA` libera a CMDF daquela parcela;
+10. somente CMDF `LIQUIDADA` libera o Pagamento daquela parcela;
+11. parcelas do mesmo documento podem permanecer em fases diferentes;
+12. fornecedor suporta Pessoa Física (CPF) e Pessoa Jurídica (CNPJ).
 
-Para uma recarga previsível em homologação, execute `999_limpar_testes.sql` e depois `001`, `002` e `003`.
+Para uma recarga previsível em homologação, pode-se executar `999_limpar_testes.sql` e depois `001`, `002` e `003`. A CI também valida a recarga direta dos seeds sem limpeza prévia.

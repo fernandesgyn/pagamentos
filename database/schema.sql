@@ -110,7 +110,9 @@ CREATE TABLE obrigacoes (
   CONSTRAINT chk_obrigacao_ano CHECK (ano BETWEEN 2000 AND 2100),
   CONSTRAINT chk_obrigacao_valor CHECK (valor_total > 0),
   CONSTRAINT chk_obrigacao_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio),
-  UNIQUE KEY uq_obrigacao_tipo_numero_ano (tipo_obrigacao_id, numero, ano),
+  -- Um fornecedor pode ter N obrigações. A mesma referência pode existir para fornecedores distintos,
+  -- mas não pode ser duplicada para o mesmo fornecedor.
+  UNIQUE KEY uq_obrigacao_fornecedor_tipo_numero_ano (fornecedor_id, tipo_obrigacao_id, numero, ano),
   INDEX idx_obrigacao_fornecedor (fornecedor_id),
   INDEX idx_obrigacao_ano (ano)
 ) ENGINE=InnoDB;

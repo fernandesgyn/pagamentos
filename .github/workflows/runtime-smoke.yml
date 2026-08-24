@@ -96,6 +96,7 @@ jobs:
             "/documentos/9001"
             "/inspecoes"
             "/inspecoes/9001"
+            "/inspecoes/9009"
             "/programacao"
             "/programacao/9001"
             "/liquidacoes"
@@ -157,6 +158,33 @@ jobs:
           grep -q 'Digite o nome, razão social ou CPF/CNPJ' /tmp/obrigacao-nova.html
           grep -q 'data-supplier-combobox' /tmp/documento-novo.html
           grep -q 'data-obligation-select' /tmp/documento-novo.html
+
+      - name: Testar gravação do responsável na Inspeção 9009
+        shell: bash
+        env:
+          MYSQL_PWD: root
+        run: |
+          set -euo pipefail
+
+          curl -fsS -b /tmp/pagamentos-cookies.txt http://127.0.0.1:8080/inspecoes/9009 > /tmp/inspecao-9009.html
+          TOKEN=$(sed -n 's/.*name="_token" value="\([^"]*\)".*/\1/p' /tmp/inspecao-9009.html | head -n 1)
+          STATUS_ANDAMENTO=$(mysql -h 127.0.0.1 -uroot -N -s -e "SELECT id FROM pagamentos.status_inspecao WHERE nome='Inspeção andamento' LIMIT 1;")
+          test -n "$TOKEN"
+          test -n "$STATUS_ANDAMENTO"
+
+          CODIGO=$(curl -sS \
+            -b /tmp/pagamentos-cookies.txt \
+            -c /tmp/pagamentos-cookies.txt \
+            -D /tmp/inspecao-9009-post.headers \
+            -o /tmp/inspecao-9009-post.body \
+            -w '%{http_code}' \
+            --data-urlencode "_token=$TOKEN" \
+            --data-urlencode "status_id=$STATUS_ANDAMENTO" \
+            --data-urlencode "observacao=Smoke: inspeção 9009 com usuário válido" \
+            http://127.0.0.1:8080/inspecoes/9009)
+          test "$CODIGO" = "302"
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.inspecoes WHERE documento_id=9009 AND responsavel_id=9001;" | grep '^1$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.inspecao_historico h JOIN pagamentos.inspecoes i ON i.id=h.inspecao_id WHERE i.documento_id=9009 AND h.usuario_id=9001 AND h.observacao='Smoke: inspeção 9009 com usuário válido';" | grep '^1$'
 
       - name: Testar Inspeção até criação da parcela e Liquidação
         shell: bash
@@ -220,11 +248,44 @@ jobs:
           grep -q 'Programação concluída' /tmp/programacao-fechada.html
           grep -q 'já estão disponíveis, individualmente, na fila de Liquidação' /tmp/programacao-fechada.html
 
+      - name: Testar invalidação de sessão após recriação ou limpeza do usuário
+        shell: bash
+        env:
+          MYSQL_PWD: root
+        run: |
+          set -euo pipefail
+
+          # Cria uma segunda sessão com usuário sem vínculos operacionais.
+          curl -fsS -c /tmp/stale-cookies.txt http://127.0.0.1:8080/login > /tmp/stale-login.html
+          TOKEN=$(sed -n 's/.*name="_token" value="\([^"]*\)".*/\1/p' /tmp/stale-login.html | head -n 1)
+          test -n "$TOKEN"
+
+          curl -fsS -L \
+            -b /tmp/stale-cookies.txt \
+            -c /tmp/stale-cookies.txt \
+            --data-urlencode "_token=$TOKEN" \
+            --data-urlencode "login=consulta.teste" \
+            --data-urlencode "senha=Teste@123" \
+            http://127.0.0.1:8080/login > /tmp/stale-home.html
+          grep -q 'Consulta de Teste' /tmp/stale-home.html
+
+          # Simula banco recriado/seed limpo enquanto o navegador mantém cookie antigo.
+          mysql -h 127.0.0.1 -uroot -e "DELETE FROM pagamentos.usuarios WHERE id=9006;"
+
+          CODIGO=$(curl -sS \
+            -b /tmp/stale-cookies.txt \
+            -D /tmp/stale-session.headers \
+            -o /tmp/stale-session.body \
+            -w '%{http_code}' \
+            http://127.0.0.1:8080/)
+          test "$CODIGO" = "302"
+          grep -Eiq '^Location: /login' /tmp/stale-session.headers
+
       - name: Verificar log de runtime
         if: always()
         shell: bash
         run: |
-          padrao_log='PHP Warning|PHP Notice|PHP Fatal error|Uncaught|Undefined variable|Undefined array key|PHP Deprecated'
+          padrao_log='PHP Warning|PHP Notice|PHP Fatal error|Uncaught|Undefined variable|Undefined array key|PHP Deprecated|Integrity constraint violation'
           if [ -f /tmp/pagamentos-server.log ] && grep -Ein "$padrao_log" /tmp/pagamentos-server.log; then
             echo 'O servidor registrou erros/avisos PHP durante o smoke test.'
             cat /tmp/pagamentos-server.log
