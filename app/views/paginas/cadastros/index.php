@@ -1,4 +1,5 @@
 <?php
+$tableId='cadastro-'.preg_replace('/[^a-zA-Z0-9_-]+/','-',trim((string)$baseUrl,'/'));
 $tablePageSize=10;
 $tableFilters=[['label'=>'Pesquisa geral','column'=>'*','type'=>'search','placeholder'=>'Pesquisar em todos os campos','class'=>'col-12 col-lg-4']];
 $novoPorRota=[
@@ -38,4 +39,4 @@ require BASE_PATH.'/app/views/components/page_actions.php';
   </table></div></div>
   <?php require BASE_PATH.'/app/views/components/admin_table_footer.php';?>
 </div>
-<?php unset($tablePageSize,$tableFilters,$novoPorRota,$novoUrl,$novoLabel,$valor);?>
+<?php unset($tableId,$tablePageSize,$tableFilters,$novoPorRota,$novoUrl,$novoLabel,$valor);?>

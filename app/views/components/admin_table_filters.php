@@ -1,6 +1,11 @@
 <?php
 $_tableFilters = $tableFilters ?? [];
 $_tablePageSize = (int) ($tablePageSize ?? 10);
+$_tableId = trim((string) ($tableId ?? ''));
+if ($_tableId === '') {
+    $_tablePath = (string) (parse_url($_SERVER['REQUEST_URI'] ?? '/tabela', PHP_URL_PATH) ?: '/tabela');
+    $_tableId = 'admin-table-' . substr(hash('sha256', $_tablePath), 0, 10);
+}
 ?>
 <div class="card-body border-bottom">
 <div class="row g-3 align-items-end">
@@ -8,7 +13,7 @@ $_tablePageSize = (int) ($tablePageSize ?? 10);
     $_tableFilterType = (string) ($_tableFilter['type'] ?? 'search');
     $_tableFilterColumn = (string) ($_tableFilter['column'] ?? '*');
     $_tableFilterMode = (string) ($_tableFilter['mode'] ?? ($_tableFilterType === 'select' ? 'exact' : 'contains'));
-    $_tableFilterId = 'filtro-' . preg_replace('/[^a-zA-Z0-9_-]+/', '-', (string) $tableId) . '-' . $_tableFilterIndex;
+    $_tableFilterId = 'filtro-' . preg_replace('/[^a-zA-Z0-9_-]+/', '-', $_tableId) . '-' . $_tableFilterIndex;
     $_tableFilterClass = (string) ($_tableFilter['class'] ?? 'col-12 col-md-6 col-lg-3');
 ?>
 <div class="<?=e($_tableFilterClass)?>">
@@ -29,8 +34,8 @@ $_tablePageSize = (int) ($tablePageSize ?? 10);
 </div>
 <?php endforeach; ?>
 <div class="col-6 col-md-3 col-lg-2">
-<label class="form-label" for="<?=e((string)$tableId)?>-page-size">Itens por página</label>
-<select class="form-select form-select-sm" id="<?=e((string)$tableId)?>-page-size" data-table-page-size>
+<label class="form-label" for="<?=e($_tableId)?>-page-size">Itens por página</label>
+<select class="form-select form-select-sm" id="<?=e($_tableId)?>-page-size" data-table-page-size>
 <?php foreach ([10, 25, 50, 100] as $_tableSize): ?><option value="<?=$_tableSize?>" <?=($_tablePageSize === $_tableSize) ? 'selected' : ''?>><?=$_tableSize?></option><?php endforeach; ?>
 </select>
 </div>
@@ -39,4 +44,4 @@ $_tablePageSize = (int) ($tablePageSize ?? 10);
 </div>
 </div>
 </div>
-<?php unset($_tableFilters, $_tablePageSize, $_tableFilterIndex, $_tableFilter, $_tableFilterType, $_tableFilterColumn, $_tableFilterMode, $_tableFilterId, $_tableFilterClass, $_tableOptionValue, $_tableOptionLabel, $_tableSize); ?>
+<?php unset($_tableFilters, $_tablePageSize, $_tableId, $_tablePath, $_tableFilterIndex, $_tableFilter, $_tableFilterType, $_tableFilterColumn, $_tableFilterMode, $_tableFilterId, $_tableFilterClass, $_tableOptionValue, $_tableOptionLabel, $_tableSize); ?>
