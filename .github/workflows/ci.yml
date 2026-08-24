@@ -27,7 +27,7 @@ jobs:
         run: php -v
 
       - name: Extensões obrigatórias
-        run: php -r "exit(extension_loaded('pdo') && extension_loaded('mbstring') ? 0 : 1);"
+        run: php -r "exit(extension_loaded('pdo') && extension_loaded('pdo_mysql') && extension_loaded('mbstring') ? 0 : 1);"
 
       - name: Lint PHP
         run: find app config public scripts -name '*.php' -print0 | xargs -0 -n1 php -l
@@ -43,6 +43,8 @@ jobs:
           grep -q 'CREATE TABLE liquidacoes' database/schema.sql
           grep -q 'CREATE TABLE cmdf_etapas' database/schema.sql
           grep -q 'CREATE TABLE pagamentos' database/schema.sql
+          grep -q 'uq_obrigacao_fornecedor_tipo_numero_ano' database/schema.sql
+          ! grep -q 'uq_obrigacao_tipo_numero_ano' database/schema.sql
 
       - name: Bloquear referências legadas
         run: |
@@ -59,6 +61,7 @@ jobs:
           test -f app/views/components/admin_table_filters.php
           test -f app/views/components/admin_table_footer.php
           test -f app/views/components/page_actions.php
+          test -f app/views/components/fornecedor_combobox.php
           grep -q '/assets/js/admin-table.js' app/views/layouts/main.php
           grep -q '/assets/js/forms.js' app/views/layouts/main.php
 
@@ -126,8 +129,17 @@ jobs:
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='pagamentos' AND table_name IN ('empenhos_pagamento','parcela_componentes','tipos_componente_pagamento');" | grep '^0$'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.fontes_recurso;" | grep '^0$'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.naturezas_despesa;" | grep '^0$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM information_schema.statistics WHERE table_schema='pagamentos' AND table_name='obrigacoes' AND index_name='uq_obrigacao_fornecedor_tipo_numero_ano';" | grep '^4$'
 
       - name: Carregar seeds de homologação
+        env:
+          MYSQL_PWD: root
+        run: |
+          mysql -h 127.0.0.1 -uroot pagamentos < database/seeds/001_cadastros_teste.sql
+          mysql -h 127.0.0.1 -uroot pagamentos < database/seeds/002_fluxo_documentos_inspecoes_teste.sql
+          mysql -h 127.0.0.1 -uroot pagamentos < database/seeds/003_programacao_liquidacao_cmdf_pagamento_teste.sql
+
+      - name: Recarregar seeds para validar idempotência
         env:
           MYSQL_PWD: root
         run: |
@@ -142,7 +154,7 @@ jobs:
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.usuarios WHERE id BETWEEN 9000 AND 9999;" | grep '^6$'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.fornecedores WHERE id BETWEEN 9000 AND 9999;" | grep '^5$'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.fornecedores WHERE id=9005 AND tipo_pessoa='PF' AND CHAR_LENGTH(documento)=11;" | grep '^1$'
-          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.obrigacoes WHERE id BETWEEN 9000 AND 9999;" | grep '^5$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.obrigacoes WHERE id BETWEEN 9000 AND 9999;" | grep '^6$'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.obrigacao_fontes_recurso WHERE obrigacao_id=9001;" | grep '^2$'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.obrigacao_naturezas_despesa WHERE obrigacao_id=9001;" | grep '^2$'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.documentos_pagamento WHERE id BETWEEN 9000 AND 9999;" | grep '^10$'
@@ -151,6 +163,25 @@ jobs:
           mysql -h 127.0.0.1 -uroot -N -e "SELECT ROUND(SUM(valor_liquido),2) FROM pagamentos.parcelas_pagamento WHERE documento_id=9001;" | grep '^9000.00$'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT ROUND(valor_liquido,2) FROM pagamentos.documentos_pagamento WHERE id=9001;" | grep '^9000.00$'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.pagamentos WHERE id BETWEEN 9000 AND 9999 AND status='PAGO';" | grep '^2$'
+
+      - name: Validar cardinalidade Fornecedor 1 para N Obrigações
+        shell: bash
+        env:
+          MYSQL_PWD: root
+        run: |
+          set -euo pipefail
+
+          # A mesma referência Contrato 101/2026 é válida para fornecedores diferentes.
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.obrigacoes o JOIN pagamentos.tipos_obrigacao t ON t.id=o.tipo_obrigacao_id WHERE t.nome='Contrato' AND o.numero='101' AND o.ano=2026;" | grep '^2$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(DISTINCT fornecedor_id) FROM pagamentos.obrigacoes o JOIN pagamentos.tipos_obrigacao t ON t.id=o.tipo_obrigacao_id WHERE t.nome='Contrato' AND o.numero='101' AND o.ano=2026;" | grep '^2$'
+
+          # A mesma referência não pode ser duplicada dentro do mesmo fornecedor.
+          set +e
+          mysql -h 127.0.0.1 -uroot -e "INSERT INTO pagamentos.obrigacoes(tipo_obrigacao_id,fornecedor_id,numero,ano,valor_total) SELECT tipo_obrigacao_id,fornecedor_id,numero,ano,1.00 FROM pagamentos.obrigacoes WHERE id=9001;" > /tmp/obrigacao-duplicada.log 2>&1
+          STATUS=$?
+          set -e
+          test "$STATUS" -ne 0
+          grep -Eqi 'Duplicate entry|1062' /tmp/obrigacao-duplicada.log
 
       - name: Validar independência das parcelas
         env:
