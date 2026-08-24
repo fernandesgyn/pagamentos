@@ -33,4 +33,5 @@ return [
 
  ['GET','/usuarios','UsuarioController','index'],
  ['POST','/usuarios','UsuarioController','salvar'],
+ ['POST','/usuarios/{id}/status','UsuarioController','alternarStatus'],
 ];
