@@ -23,7 +23,7 @@ final class Cadastro{
 
     public function salvarEmpenho(array $d,?int $id=null):void{
         $numero=trim((string)($d['numero']??''));$ano=(int)($d['ano']??0);
-        if($numero===''||!ctype_digit($numero)||$ano<2000||$ano>2100)throw new InvalidArgumentException('Informe número numérico e ano válido do empenho.');
+        if($numero===''||$ano<2000||$ano>2100)throw new InvalidArgumentException('Informe número e ano válido do empenho.');
         $valores=[$numero,$ano,trim((string)($d['natureza']??''))?:null,(int)($d['exercicio']??0)?:null,trim((string)($d['origem_recurso']??''))?:null,trim((string)($d['fonte']??''))?:null,trim((string)($d['cmdf']??''))?:null,isset($d['ativo'])?1:0];
         if($id){$st=$this->db->prepare("UPDATE empenhos_pagamento SET numero=?,ano=?,natureza=?,exercicio=?,origem_recurso=?,fonte=?,cmdf=?,ativo=? WHERE id=?");$st->execute([...$valores,$id]);}
         else{$st=$this->db->prepare("INSERT INTO empenhos_pagamento(numero,ano,natureza,exercicio,origem_recurso,fonte,cmdf,ativo) VALUES(?,?,?,?,?,?,?,?)");$st->execute($valores);}
