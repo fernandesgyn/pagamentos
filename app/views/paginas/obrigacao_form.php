@@ -2,6 +2,7 @@
 $pageBackUrl='/obrigacoes';
 require BASE_PATH.'/app/views/components/page_actions.php';
 $fornecedorSelecionado=(int)($_GET['fornecedor_id']??0);
+$fornecedorComboboxId='obrigacao-fornecedor';
 ?>
 <?php if(!$fontes||!$naturezas):?>
 <div class="alert alert-warning">
@@ -21,15 +22,7 @@ $fornecedorSelecionado=(int)($_GET['fornecedor_id']??0);
         </select>
       </div>
       <div class="col-md-8">
-        <label class="form-label">Pesquisar fornecedor</label>
-        <input type="search" class="form-control mb-2" placeholder="Digite Razão Social/Nome ou CPF/CNPJ" data-select-search="#fornecedor_id">
-        <label class="form-label">Fornecedor *</label>
-        <select id="fornecedor_id" name="fornecedor_id" class="form-select" required>
-          <option value="">Selecione</option>
-          <?php foreach($fornecedores as $f):?>
-            <option value="<?=e($f['id'])?>" <?=((int)$f['id']===$fornecedorSelecionado)?'selected':''?>><?=e($f['razao_social'])?> — <?=e($f['documento'])?> (<?=e($f['tipo_pessoa'])?>)</option>
-          <?php endforeach;?>
-        </select>
+        <?php require BASE_PATH.'/app/views/components/fornecedor_combobox.php';?>
       </div>
 
       <div class="col-md-4"><label class="form-label">Número *</label><input name="numero" class="form-control" required></div>
@@ -77,4 +70,4 @@ $fornecedorSelecionado=(int)($_GET['fornecedor_id']??0);
     <button type="submit" class="btn btn-primary" <?=(!$fontes||!$naturezas)?'disabled':''?>><i class="fa-solid fa-floppy-disk me-1"></i>Salvar</button>
   </div>
 </form>
-<?php unset($fornecedorSelecionado);?>
+<?php unset($fornecedorSelecionado,$fornecedorComboboxId);?>
