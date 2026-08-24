@@ -20,6 +20,9 @@ SET @st_finalizada = (SELECT id FROM status_inspecao WHERE nome='Finalizada' LIM
 SET @st_liberada = (SELECT id FROM status_inspecao WHERE nome='Liberada liquidação de imposto' LIMIT 1);
 SET @st_cancelada = (SELECT id FROM status_inspecao WHERE nome='Cancelada' LIMIT 1);
 
+-- Obrigações de homologação.
+-- 9001 e 9006 usam a mesma referência Contrato 101/2026 em fornecedores diferentes.
+-- Isso valida a cardinalidade Fornecedor 1:N Obrigações sem impor unicidade global indevida.
 INSERT INTO obrigacoes
 (id,tipo_obrigacao_id,fornecedor_id,numero,ano,valor_total,nr_sei_contratacao,data_inicio,data_fim,ativo,criado_por,criado_em)
 VALUES
@@ -27,7 +30,8 @@ VALUES
 (9002,@tipo_empenho,9002,'2026NE000123',2026,25000.00,'2026000000202','2026-03-01','2026-09-30',1,9002,'2026-03-02 10:10:00'),
 (9003,@tipo_taxa,9003,'15',2026,18000.00,'2026000000303','2026-04-01','2026-10-31',1,9002,'2026-04-02 14:20:00'),
 (9004,@tipo_judicial,9004,'102',2026,45000.00,'2026000000404','2026-02-15','2026-12-15',1,9002,'2026-02-16 08:40:00'),
-(9005,@tipo_diaria,9005,'77',2026,12000.00,'2026000000505','2026-05-10','2026-08-31',1,9002,'2026-05-11 11:00:00')
+(9005,@tipo_diaria,9005,'77',2026,12000.00,'2026000000505','2026-05-10','2026-08-31',1,9002,'2026-05-11 11:00:00'),
+(9006,@tipo_contrato,9002,'101',2026,60000.00,'2026000000606','2026-02-01','2026-11-30',1,9002,'2026-02-02 10:00:00')
 ON DUPLICATE KEY UPDATE
  tipo_obrigacao_id=VALUES(tipo_obrigacao_id),fornecedor_id=VALUES(fornecedor_id),numero=VALUES(numero),ano=VALUES(ano),valor_total=VALUES(valor_total),nr_sei_contratacao=VALUES(nr_sei_contratacao),data_inicio=VALUES(data_inicio),data_fim=VALUES(data_fim),ativo=1,criado_por=VALUES(criado_por);
 
@@ -36,7 +40,8 @@ INSERT INTO obrigacao_fontes_recurso (obrigacao_id,fonte_recurso_id) VALUES
 (9002,9001),
 (9003,9002),
 (9004,9002),(9004,9004),
-(9005,9003)
+(9005,9003),
+(9006,9001)
 ON DUPLICATE KEY UPDATE fonte_recurso_id=VALUES(fonte_recurso_id);
 
 INSERT INTO obrigacao_naturezas_despesa (obrigacao_id,natureza_despesa_id) VALUES
@@ -44,7 +49,8 @@ INSERT INTO obrigacao_naturezas_despesa (obrigacao_id,natureza_despesa_id) VALUE
 (9002,9003),
 (9003,9003),
 (9004,9002),(9004,9003),
-(9005,9002)
+(9005,9002),
+(9006,9003)
 ON DUPLICATE KEY UPDATE natureza_despesa_id=VALUES(natureza_despesa_id);
 
 INSERT INTO documentos_pagamento
