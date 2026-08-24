@@ -1,10 +1,16 @@
 # Seeds de homologação
 
-Os seeds usam a faixa de IDs **9000 a 9999**, reservada exclusivamente para testes/homologação.
+Os seeds são **exclusivamente de homologação/testes** e usam a faixa de IDs **9000 a 9999**. Eles não fazem parte do provisionamento de produção.
 
-## Ordem de carga
+## Pré-requisito
 
-Após executar `database/schema.sql`, carregue:
+Crie primeiro uma base nova a partir do schema consolidado:
+
+```bash
+mysql -u root -p < database/schema.sql
+```
+
+Depois carregue os seeds nesta ordem:
 
 ```bash
 mysql -u root -p pagamentos < database/seeds/001_cadastros_teste.sql
@@ -12,7 +18,7 @@ mysql -u root -p pagamentos < database/seeds/002_fluxo_documentos_inspecoes_test
 mysql -u root -p pagamentos < database/seeds/003_programacao_liquidacao_cmdf_pagamento_teste.sql
 ```
 
-Para remover somente os dados de teste:
+Para remover somente os dados de homologação:
 
 ```bash
 mysql -u root -p pagamentos < database/seeds/999_limpar_testes.sql
@@ -31,42 +37,61 @@ Todos usam a senha `Teste@123`.
 | `cmdf.teste` | CMDF |
 | `consulta.teste` | Consulta |
 
-## Cenários disponíveis
+## Cadastros da massa
 
-| Documento | Valor | Situação principal |
-|---|---:|---|
-| NF 50 | R$ 10.000,00 | **Demonstra fluxo independente:** 2 parcelas fecham a NF; parcela 1 já está paga e parcela 2 continua aguardando liquidação |
-| NF 51 | R$ 5.000,00 | Inspeção em andamento; sem programação |
-| Fatura 77 | R$ 12.000,00 | Concluída com ressalvas; parcela criada; composição propositalmente incompleta |
-| NF 900 | R$ 4.500,00 | Devolvida para o gestor por pendência |
-| NF 901 | R$ 8.000,00 | Liquidação concluída; CMDF aguardando atendimento da Economia |
-| Recibo 10 | R$ 3.000,00 | Fluxo completo até pagamento |
-| Boleto B-12 | R$ 2.500,00 | Pendente de complementação |
-| NF 888 | R$ 7.000,00 | Inspeção cancelada |
-| NF 52 | R$ 6.200,00 | Recém-lançada, aguardando inspeção |
-| Fatura 78 | R$ 6.000,00 | Retornada para inspeção após pendência |
+O seed `001` cria:
 
-## Regra de independência das parcelas
+- 5 fornecedores: 4 Pessoas Jurídicas e 1 Pessoa Física;
+- 4 Fontes de recurso;
+- 4 Naturezas da despesa;
+- os 6 usuários de teste.
 
-O documento precisa ter sua **programação fechada** — soma dos valores das parcelas igual ao valor bruto da NF/fatura. Depois disso, Liquidação, CMDF e Pagamento pertencem à parcela.
+RRT e RDO são dados estruturais do `schema.sql` e, por isso, não são recriados pelos seeds.
 
-Assim, parcelas irmãs podem estar simultaneamente em etapas diferentes. O cenário da **NF 50** comprova essa regra na massa de testes:
+## Cenários de documentos e inspeção
 
-- parcela `9001`: liquidação concluída → CMDF concluída → `PAGO`;
-- parcela `9002`: `LIQUIDAÇÃO / AGUARDANDO`;
-- ambas pertencem ao documento `9001` (NF 50).
+| Documento | Bruto | Líquido | Situação principal |
+|---|---:|---:|---|
+| NF 50 | R$ 10.000,00 | R$ 9.000,00 | Liberada para programação; três parcelas independentes fecham o valor líquido |
+| NF 51 | R$ 5.000,00 | R$ 4.500,00 | Inspeção andamento |
+| Fatura 77 | R$ 12.000,00 | R$ 11.000,00 | Finalizada, mas não liberada para programação |
+| NF 900 | R$ 4.500,00 | R$ 4.200,00 | Devolvida para o gestor |
+| NF 901 | R$ 8.000,00 | R$ 7.500,00 | Liberada; parcela liquidada aguardando CMDF |
+| Recibo 10 | R$ 3.000,00 | R$ 2.700,00 | Fluxo completo até pagamento |
+| Boleto B-12 | R$ 2.500,00 | R$ 2.400,00 | Pendente de complementação |
+| NF 888 | R$ 7.000,00 | R$ 6.500,00 | Inspeção cancelada |
+| NF 52 | R$ 6.200,00 | R$ 5.800,00 | Aguardando inspeção |
+| Fatura 78 | R$ 6.000,00 | R$ 5.600,00 | Retornada para inspeção |
 
-Não deve existir regra que obrigue a parcela 9002 a avançar para que a parcela 9001 permaneça paga, nem regra que exija que todas as parcelas concluam Liquidação/CMDF juntas.
+## Independência das parcelas
 
-## Regras que os seeds ajudam a testar
+A programação de um documento fecha quando:
 
-1. Apenas inspeções `Concluída` e `Concluída com ressalvas` liberam programação.
-2. O valor total das parcelas deve fechar exatamente o valor bruto do documento antes de elas avançarem da programação.
-3. A composição **da própria parcela** deve fechar exatamente seu valor para aquela parcela ser liquidada.
-4. Depois da programação, uma parcela não depende da etapa das demais parcelas do documento.
-5. Liquidação concluída de uma parcela libera a CMDF daquela parcela.
-6. CMDF concluída de uma parcela libera o pagamento daquela parcela.
-7. O empenho usado na parcela é o **empenho de pagamento**, distinto do instrumento de obrigação.
-8. As filas por perfil podem ser conferidas com usuários específicos de Gestor, Inspetor, Liquidação, CMDF e Consulta.
+```text
+SUM(parcelas.valor_liquido) = documentos_pagamento.valor_liquido
+```
 
-Os scripts foram desenhados para serem reexecutáveis sobre uma base de homologação criada a partir do schema consolidado. Para uma recarga totalmente previsível, execute primeiro `999_limpar_testes.sql` e depois os seeds `001` a `003`.
+Depois desse fechamento, Liquidação, CMDF e Pagamento pertencem **individualmente à parcela**.
+
+A NF 50 demonstra três parcelas irmãs simultaneamente em fases diferentes:
+
+- parcela `9001`: `PAGO`;
+- parcela `9002`: Liquidação `LIQUIDADA` e CMDF `AGUARDANDO`;
+- parcela `9003`: Liquidação `AGUARDANDO`.
+
+Uma parcela não precisa esperar a irmã concluir Liquidação, CMDF ou Pagamento.
+
+## Regras cobertas pelos seeds
+
+1. somente `Liberada liquidação de imposto` permite Programação;
+2. uma obrigação pode possuir 1..N Fontes de recurso e 1..N Naturezas da despesa;
+3. a Natureza e a Fonte usadas na parcela precisam pertencer à obrigação do documento;
+4. o número do empenho é informado diretamente na parcela;
+5. a soma das parcelas não pode ultrapassar o valor líquido do documento;
+6. nenhuma parcela pode ser liquidada antes de a programação fechar exatamente o valor líquido do documento;
+7. somente Liquidação `LIQUIDADA` libera a CMDF daquela parcela;
+8. somente CMDF `LIQUIDADA` libera o Pagamento daquela parcela;
+9. parcelas do mesmo documento podem permanecer em fases diferentes;
+10. fornecedor suporta Pessoa Física (CPF) e Pessoa Jurídica (CNPJ).
+
+Para uma recarga previsível em homologação, execute `999_limpar_testes.sql` e depois `001`, `002` e `003`.
