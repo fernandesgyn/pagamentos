@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+
 return [
  ['GET','/login','AuthController','loginForm'],
  ['POST','/login','AuthController','login'],
@@ -15,16 +16,22 @@ return [
  ['GET','/documentos/novo','HomeController','novoDocumento'],
  ['POST','/documentos','HomeController','salvarDocumento'],
  ['GET','/documentos/{id}','HomeController','documento'],
- ['POST','/documentos/{id}/inspecao','HomeController','inspecao'],
- ['POST','/documentos/{id}/parcelas','HomeController','parcela'],
- ['POST','/documentos/{documentoId}/parcelas/{parcelaId}/componentes','HomeController','componente'],
- ['POST','/documentos/{documentoId}/parcelas/{parcelaId}/liquidar','HomeController','liquidar'],
- ['POST','/documentos/{documentoId}/parcelas/{parcelaId}/cmdf','CmdfController','concluir'],
 
  ['GET','/inspecoes','FilaController','inspecoes'],
+ ['GET','/inspecoes/{documentoId}','FilaController','inspecao'],
+ ['POST','/inspecoes/{documentoId}','FilaController','salvarInspecao'],
+
  ['GET','/programacao','FilaController','programacao'],
+ ['GET','/programacao/{documentoId}','FilaController','programar'],
+ ['POST','/programacao/{documentoId}/parcelas','FilaController','adicionarParcela'],
+
  ['GET','/liquidacoes','FilaController','liquidacoes'],
+ ['GET','/liquidacoes/{parcelaId}','FilaController','liquidacao'],
+ ['POST','/liquidacoes/{parcelaId}','FilaController','salvarLiquidacao'],
+
  ['GET','/cmdf','FilaController','cmdf'],
+ ['GET','/cmdf/{parcelaId}','FilaController','cmdfParcela'],
+ ['POST','/cmdf/{parcelaId}','FilaController','salvarCmdf'],
 
  ['GET','/pagamentos','PagamentoController','index'],
  ['POST','/documentos/{documentoId}/parcelas/{parcelaId}/pagar','PagamentoController','pagar'],
@@ -36,12 +43,26 @@ return [
  ['POST','/fornecedores/{id}','CadastroController','atualizarFornecedor'],
  ['POST','/fornecedores/{id}/excluir','CadastroController','excluirFornecedor'],
 
- ['GET','/empenhos-pagamento','CadastroController','empenhos'],
- ['GET','/empenhos-pagamento/novo','CadastroController','novoEmpenho'],
- ['POST','/empenhos-pagamento','CadastroController','salvarEmpenho'],
- ['GET','/empenhos-pagamento/{id}/editar','CadastroController','editarEmpenho'],
- ['POST','/empenhos-pagamento/{id}','CadastroController','atualizarEmpenho'],
- ['POST','/empenhos-pagamento/{id}/excluir','CadastroController','excluirEmpenho'],
+ ['GET','/fontes-recurso','CadastroController','fontes'],
+ ['GET','/fontes-recurso/nova','CadastroController','novaFonte'],
+ ['POST','/fontes-recurso','CadastroController','salvarFonte'],
+ ['GET','/fontes-recurso/{id}/editar','CadastroController','editarFonte'],
+ ['POST','/fontes-recurso/{id}','CadastroController','atualizarFonte'],
+ ['POST','/fontes-recurso/{id}/excluir','CadastroController','excluirFonte'],
+
+ ['GET','/naturezas-despesa','CadastroController','naturezas'],
+ ['GET','/naturezas-despesa/nova','CadastroController','novaNatureza'],
+ ['POST','/naturezas-despesa','CadastroController','salvarNatureza'],
+ ['GET','/naturezas-despesa/{id}/editar','CadastroController','editarNatureza'],
+ ['POST','/naturezas-despesa/{id}','CadastroController','atualizarNatureza'],
+ ['POST','/naturezas-despesa/{id}/excluir','CadastroController','excluirNatureza'],
+
+ ['GET','/tipos-recurso','CadastroController','tiposRecurso'],
+ ['GET','/tipos-recurso/novo','CadastroController','novoTipoRecurso'],
+ ['POST','/tipos-recurso','CadastroController','salvarTipoRecurso'],
+ ['GET','/tipos-recurso/{id}/editar','CadastroController','editarTipoRecurso'],
+ ['POST','/tipos-recurso/{id}','CadastroController','atualizarTipoRecurso'],
+ ['POST','/tipos-recurso/{id}/excluir','CadastroController','excluirTipoRecurso'],
 
  ['GET','/tipos-documento','CadastroController','tiposDocumento'],
  ['GET','/tipos-documento/novo','CadastroController','novoTipoDocumento'],
