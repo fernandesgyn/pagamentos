@@ -20,14 +20,17 @@ return [
  ['GET','/inspecoes','FilaController','inspecoes'],
  ['GET','/inspecoes/{documentoId}','FilaController','inspecao'],
  ['POST','/inspecoes/{documentoId}','FilaController','salvarInspecao'],
+ ['POST','/inspecoes/{documentoId}/desfazer','FilaController','desfazerInspecao'],
 
  ['GET','/programacao','FilaController','programacao'],
  ['GET','/programacao/{documentoId}','FilaController','programar'],
  ['POST','/programacao/{documentoId}/parcelas','FilaController','adicionarParcela'],
+ ['POST','/programacao/{documentoId}/parcelas/{parcelaId}/desfazer','FilaController','desfazerProgramacao'],
 
  ['GET','/liquidacoes','FilaController','liquidacoes'],
  ['GET','/liquidacoes/{parcelaId}','FilaController','liquidacao'],
  ['POST','/liquidacoes/{parcelaId}','FilaController','salvarLiquidacao'],
+ ['POST','/liquidacoes/{parcelaId}/desfazer','FilaController','desfazerLiquidacao'],
 
  ['GET','/cmdf','FilaController','cmdf'],
  ['POST','/cmdf/grupos/sugerir','FilaController','sugerirGruposCmdf'],
@@ -36,9 +39,11 @@ return [
  ['POST','/cmdf/grupos/{grupoId}/parcelas','FilaController','adicionarParcelasGrupoCmdf'],
  ['POST','/cmdf/grupos/{grupoId}/parcelas/{parcelaId}/remover','FilaController','removerParcelaGrupoCmdf'],
  ['POST','/cmdf/grupos/{grupoId}/status','FilaController','salvarStatusGrupoCmdf'],
+ ['POST','/cmdf/grupos/{grupoId}/desfazer','FilaController','desfazerCmdf'],
 
  ['GET','/pagamentos','PagamentoController','index'],
  ['POST','/documentos/{documentoId}/parcelas/{parcelaId}/pagar','PagamentoController','pagar'],
+ ['POST','/documentos/{documentoId}/parcelas/{parcelaId}/pagamento/desfazer','PagamentoController','desfazer'],
 
  ['GET','/fornecedores','CadastroController','fornecedores'],
  ['GET','/fornecedores/novo','CadastroController','novoFornecedor'],
