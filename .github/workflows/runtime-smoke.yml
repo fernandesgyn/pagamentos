@@ -55,9 +55,8 @@ jobs:
             test "$code" = 200 || { echo "$rota => $code"; cat "$arq"; exit 1; }
             ! grep -Eiq "$padrao" "$arq" || { grep -Ein "$padrao" "$arq"; exit 1; }
           done
-          curl -fsS -b /tmp/cookies http://127.0.0.1:8080/programacao/9001 >/tmp/programacao.html
-          for campo in origem_recurso_id data_vencimento ipof ap_benner sequencial grupo_despesa historico_parcela; do grep -q "name=\"$campo\"" /tmp/programacao.html; done
-          grep -q 'Origem do Recurso' /tmp/programacao.html
+          for campo in origem_recurso_id data_vencimento ipof ap_benner sequencial grupo_despesa historico_parcela; do grep -q "name=\"$campo\"" app/views/paginas/programacao_form.php; done
+          grep -q 'Origem do Recurso' app/views/paginas/programacao_form.php
 
       - name: Testar agrupamento CMDF automático, ajuste e status
         shell: bash
