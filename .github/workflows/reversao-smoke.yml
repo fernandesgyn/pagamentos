@@ -53,7 +53,6 @@ jobs:
           csrf(){ local html token; html=$(curl -fsS -b /tmp/cookies "$1"); token=$(printf '%s' "$html" | sed -n 's/.*name="_token" value="\([^"]*\)".*/\1/p' | head -1); if [ -z "$token" ]; then echo "Sem token CSRF em $1" >&2; printf '%s\n' "$html" >&2; return 1; fi; printf '%s' "$token"; }
           post(){ local page="$1" url="$2"; shift 2; local token code; token=$(csrf "$page"); code=$(curl -sS -L -b /tmp/cookies -c /tmp/cookies -o /tmp/post.html -w '%{http_code}' --data-urlencode "_token=$token" "$@" "$url"); if [ "$code" != 200 ]; then echo "POST $url terminou HTTP $code" >&2; cat /tmp/post.html >&2; return 1; fi; }
 
-          # Retrocessos por formulário normal são bloqueados: só a ação Desfazer pode voltar etapas.
           STATUS_ANDAMENTO=$(mysql -h 127.0.0.1 -uroot -N -s -e "SELECT id FROM pagamentos.status_inspecao WHERE nome='Inspeção andamento' LIMIT 1;")
           test -n "$STATUS_ANDAMENTO"
           post http://127.0.0.1:8080/inspecoes/9008 http://127.0.0.1:8080/inspecoes/9008 --data-urlencode "status_id=$STATUS_ANDAMENTO" --data-urlencode 'observacao=Tentativa de retorno sem usar desfazer'
@@ -61,55 +60,84 @@ jobs:
           post http://127.0.0.1:8080/liquidacoes/9001 http://127.0.0.1:8080/liquidacoes/9001 --data-urlencode 'status=AGUARDANDO'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT status FROM pagamentos.liquidacoes WHERE parcela_id=9001;" | grep '^LIQUIDADA$'
 
-          # Grupo 9001 começa ATENDIDA e parcela 9001 começa PAGA.
           mysql -h 127.0.0.1 -uroot -N -e "SELECT status FROM pagamentos.cmdf_grupos WHERE id=9001;" | grep '^ATENDIDA$'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT status FROM pagamentos.pagamentos WHERE parcela_id=9001;" | grep '^PAGO$'
 
-          # A CMDF não pode voltar enquanto houver Pagamento já realizado.
           post http://127.0.0.1:8080/cmdf/grupos/9001 http://127.0.0.1:8080/cmdf/grupos/9001/desfazer --data-urlencode 'motivo=Teste de bloqueio por pagamento'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT status FROM pagamentos.cmdf_grupos WHERE id=9001;" | grep '^ATENDIDA$'
 
-          # Pagamento: PAGO -> AGUARDANDO.
           post http://127.0.0.1:8080/pagamentos http://127.0.0.1:8080/documentos/9001/parcelas/9001/pagamento/desfazer --data-urlencode 'motivo=Pagamento lançado incorretamente'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT CONCAT(status,'|',IFNULL(data_pagamento,'NULL'),'|',IFNULL(valor_liquido_pago,'NULL')) FROM pagamentos.pagamentos WHERE parcela_id=9001;" | grep '^AGUARDANDO|NULL|NULL$'
 
-          # CMDF: ATENDIDA -> LIBERADA; pagamentos pendentes deixam de existir porque a fase deixou de estar liberada.
           post http://127.0.0.1:8080/cmdf/grupos/9001 http://127.0.0.1:8080/cmdf/grupos/9001/desfazer --data-urlencode 'motivo=Necessidade de corrigir a CMDF'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT status FROM pagamentos.cmdf_grupos WHERE id=9001;" | grep '^LIBERADA$'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.pagamentos pg JOIN pagamentos.cmdf_grupo_parcelas gp ON gp.parcela_id=pg.parcela_id WHERE gp.grupo_id=9001;" | grep '^0$'
 
-          # CMDF: LIBERADA -> FECHADA; composição volta a ser editável.
           post http://127.0.0.1:8080/cmdf/grupos/9001 http://127.0.0.1:8080/cmdf/grupos/9001/desfazer --data-urlencode 'motivo=Reabrir composição do grupo'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT status FROM pagamentos.cmdf_grupos WHERE id=9001;" | grep '^FECHADA$'
 
-          # Retira a parcela da CMDF antes de voltar a Liquidação.
           post http://127.0.0.1:8080/cmdf/grupos/9001 http://127.0.0.1:8080/cmdf/grupos/9001/parcelas/9001/remover
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.cmdf_grupo_parcelas WHERE parcela_id=9001;" | grep '^0$'
 
-          # A Programação ainda não pode ser apagada porque a Liquidação continua LIQUIDADA.
           post http://127.0.0.1:8080/programacao/9001 http://127.0.0.1:8080/programacao/9001/parcelas/9001/desfazer --data-urlencode 'motivo=Teste de bloqueio por liquidação'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.parcelas_pagamento WHERE id=9001;" | grep '^1$'
 
-          # Liquidação: LIQUIDADA -> AGUARDANDO.
           post http://127.0.0.1:8080/liquidacoes/9001 http://127.0.0.1:8080/liquidacoes/9001/desfazer --data-urlencode 'motivo=Liquidação lançada com dados incorretos'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT CONCAT(status,'|',IFNULL(data_liquidacao,'NULL')) FROM pagamentos.liquidacoes WHERE parcela_id=9001;" | grep '^AGUARDANDO|NULL$'
 
-          # Programação: remove a parcela, reabre o saldo e renumera somente as posteriores.
           post http://127.0.0.1:8080/programacao/9001 http://127.0.0.1:8080/programacao/9001/parcelas/9001/desfazer --data-urlencode 'motivo=Programação cadastrada incorretamente'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.parcelas_pagamento WHERE id=9001;" | grep '^0$'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.parcelas_pagamento WHERE documento_id=9001;" | grep '^2$'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT GROUP_CONCAT(numero_parcela ORDER BY numero_parcela) FROM pagamentos.parcelas_pagamento WHERE documento_id=9001;" | grep '^1,2$'
 
-          # Inspeção do documento 9001 ainda não pode ser reaberta porque restam parcelas.
           post http://127.0.0.1:8080/inspecoes/9001 http://127.0.0.1:8080/inspecoes/9001/desfazer --data-urlencode 'motivo=Teste de bloqueio por programação existente'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT s.nome FROM pagamentos.inspecoes i JOIN pagamentos.status_inspecao s ON s.id=i.status_id WHERE i.documento_id=9001;" | grep '^Liberada liquidação de imposto$'
 
-          # Uma Inspeção encerrada e sem Programação pode ser reaberta de forma auditada.
           post http://127.0.0.1:8080/inspecoes/9008 http://127.0.0.1:8080/inspecoes/9008/desfazer --data-urlencode 'motivo=Inspeção precisa ser reavaliada'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT CONCAT(s.nome,'|',IFNULL(i.data_conclusao,'NULL')) FROM pagamentos.inspecoes i JOIN pagamentos.status_inspecao s ON s.id=i.status_id WHERE i.documento_id=9008;" | grep '^Inspeção andamento|NULL$'
 
-          # Os seeds não contêm ações DESFAZER_*, então a contagem é inequívoca independentemente do AUTO_INCREMENT.
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.auditoria WHERE acao IN ('DESFAZER_PAGAMENTO','DESFAZER_CMDF','DESFAZER_LIQUIDACAO','DESFAZER_PROGRAMACAO','DESFAZER_CONCLUSAO');" | grep '^6$'
+
+      - name: Validar exclusão de Documento e Obrigação
+        shell: bash
+        run: |
+          set -euo pipefail
+          csrf(){ curl -fsS -b /tmp/cookies "$1" | sed -n 's/.*name="_token" value="\([^"]*\)".*/\1/p' | head -1; }
+          post(){ local page="$1" url="$2"; shift 2; local token; token=$(csrf "$page"); test -n "$token"; curl -fsS -L -b /tmp/cookies -c /tmp/cookies -o /tmp/post-exclusao.html --data-urlencode "_token=$token" "$@" "$url"; }
+
+          ADMIN=$(mysql -h 127.0.0.1 -uroot -N -s -e "SELECT id FROM pagamentos.usuarios WHERE login='admin.teste' LIMIT 1;")
+          TIPO_OBR=$(mysql -h 127.0.0.1 -uroot -N -s -e "SELECT id FROM pagamentos.tipos_obrigacao WHERE ativo=1 ORDER BY id LIMIT 1;")
+          FORN=$(mysql -h 127.0.0.1 -uroot -N -s -e "SELECT id FROM pagamentos.fornecedores WHERE ativo=1 ORDER BY id LIMIT 1;")
+          TIPO_DOC=$(mysql -h 127.0.0.1 -uroot -N -s -e "SELECT id FROM pagamentos.tipos_documento_pagamento WHERE ativo=1 ORDER BY id LIMIT 1;")
+          FONTE=$(mysql -h 127.0.0.1 -uroot -N -s -e "SELECT id FROM pagamentos.fontes_recurso WHERE ativo=1 ORDER BY id LIMIT 1;")
+          NATUREZA=$(mysql -h 127.0.0.1 -uroot -N -s -e "SELECT id FROM pagamentos.naturezas_despesa WHERE ativo=1 ORDER BY id LIMIT 1;")
+          STATUS_FINAL=$(mysql -h 127.0.0.1 -uroot -N -s -e "SELECT id FROM pagamentos.status_inspecao WHERE nome='Finalizada' LIMIT 1;")
+          test -n "$ADMIN" && test -n "$TIPO_OBR" && test -n "$FORN" && test -n "$TIPO_DOC" && test -n "$FONTE" && test -n "$NATUREZA" && test -n "$STATUS_FINAL"
+
+          mysql -h 127.0.0.1 -uroot -e "INSERT INTO pagamentos.obrigacoes(id,tipo_obrigacao_id,fornecedor_id,numero,ano,valor_total,nr_sei_contratacao,criado_por) VALUES(12001,$TIPO_OBR,$FORN,'REV-12001',2026,1000.00,'SEI-REV-12001',$ADMIN); INSERT INTO pagamentos.obrigacao_fontes_recurso(obrigacao_id,fonte_recurso_id) VALUES(12001,$FONTE); INSERT INTO pagamentos.obrigacao_naturezas_despesa(obrigacao_id,natureza_despesa_id) VALUES(12001,$NATUREZA); INSERT INTO pagamentos.documentos_pagamento(id,obrigacao_id,tipo_documento_id,numero,data_emissao,valor_bruto,valor_liquido,criado_por) VALUES(12001,12001,$TIPO_DOC,'DOC-REV-12001','2026-08-25',1000.00,1000.00,$ADMIN); INSERT INTO pagamentos.inspecoes(id,documento_id,status_id,data_conclusao,responsavel_id) VALUES(12001,12001,$STATUS_FINAL,'2026-08-25',$ADMIN);"
+
+          # A Obrigação não pode ser excluída enquanto existir Documento.
+          post http://127.0.0.1:8080/obrigacoes http://127.0.0.1:8080/obrigacoes/12001/excluir --data-urlencode 'motivo=Teste bloqueio obrigação'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.obrigacoes WHERE id=12001;" | grep '^1$'
+
+          # O Documento não pode ser excluído enquanto sua Inspeção estiver encerrada.
+          post http://127.0.0.1:8080/documentos http://127.0.0.1:8080/documentos/12001/excluir --data-urlencode 'motivo=Teste bloqueio documento'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.documentos_pagamento WHERE id=12001;" | grep '^1$'
+
+          # Desfaz a etapa posterior e então exclui o Documento.
+          post http://127.0.0.1:8080/inspecoes/12001 http://127.0.0.1:8080/inspecoes/12001/desfazer --data-urlencode 'motivo=Reabrir para excluir documento'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT s.nome FROM pagamentos.inspecoes i JOIN pagamentos.status_inspecao s ON s.id=i.status_id WHERE i.documento_id=12001;" | grep '^Inspeção andamento$'
+          post http://127.0.0.1:8080/documentos http://127.0.0.1:8080/documentos/12001/excluir --data-urlencode 'motivo=Documento cadastrado por engano'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.documentos_pagamento WHERE id=12001;" | grep '^0$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.inspecoes WHERE documento_id=12001;" | grep '^0$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.auditoria WHERE entidade='documentos_pagamento' AND entidade_id=12001 AND acao='EXCLUIR_DOCUMENTO';" | grep '^1$'
+
+          # Sem Documentos, a Obrigação pode ser excluída.
+          post http://127.0.0.1:8080/obrigacoes http://127.0.0.1:8080/obrigacoes/12001/excluir --data-urlencode 'motivo=Obrigação cadastrada por engano'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.obrigacoes WHERE id=12001;" | grep '^0$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.obrigacao_fontes_recurso WHERE obrigacao_id=12001;" | grep '^0$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.obrigacao_naturezas_despesa WHERE obrigacao_id=12001;" | grep '^0$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.auditoria WHERE entidade='obrigacoes' AND entidade_id=12001 AND acao='EXCLUIR_OBRIGACAO';" | grep '^1$'
 
       - name: Verificar erros PHP
         if: always()
