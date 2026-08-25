@@ -76,7 +76,8 @@ CREATE TABLE naturezas_despesa (
   ativo TINYINT(1) NOT NULL DEFAULT 1
 ) ENGINE=InnoDB;
 
-CREATE TABLE tipos_recurso (
+-- Origem do Recurso substitui integralmente a nomenclatura antiga "Tipo do recurso".
+CREATE TABLE origens_recurso (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   codigo VARCHAR(30) NOT NULL UNIQUE,
   nome VARCHAR(150) NOT NULL,
@@ -110,8 +111,6 @@ CREATE TABLE obrigacoes (
   CONSTRAINT chk_obrigacao_ano CHECK (ano BETWEEN 2000 AND 2100),
   CONSTRAINT chk_obrigacao_valor CHECK (valor_total > 0),
   CONSTRAINT chk_obrigacao_datas CHECK (data_fim IS NULL OR data_inicio IS NULL OR data_fim >= data_inicio),
-  -- Um fornecedor pode ter N obrigações. A mesma referência pode existir para fornecedores distintos,
-  -- mas não pode ser duplicada para o mesmo fornecedor.
   UNIQUE KEY uq_obrigacao_fornecedor_tipo_numero_ano (fornecedor_id, tipo_obrigacao_id, numero, ano),
   INDEX idx_obrigacao_fornecedor (fornecedor_id),
   INDEX idx_obrigacao_ano (ano)
@@ -209,11 +208,15 @@ CREATE TABLE parcelas_pagamento (
   natureza_despesa_id BIGINT UNSIGNED NOT NULL,
   exercicio_orcamentario SMALLINT UNSIGNED NOT NULL,
   fonte_recurso_id BIGINT UNSIGNED NOT NULL,
-  tipo_recurso_id BIGINT UNSIGNED NOT NULL,
+  origem_recurso_id BIGINT UNSIGNED NOT NULL,
   valor_liquido DECIMAL(15,2) NOT NULL,
   tipo ENUM('IMPOSTO','DARE','INSS','PIS','COFINS','IR','ISS') NOT NULL,
-  data_vencimento DATE NULL,
-  historico_parcela VARCHAR(255) NULL,
+  data_vencimento DATE NOT NULL,
+  ipof CHAR(10) NOT NULL,
+  ap_benner CHAR(10) NOT NULL,
+  sequencial CHAR(3) NOT NULL,
+  grupo_despesa CHAR(2) NOT NULL,
+  historico_parcela VARCHAR(255) NOT NULL,
   justificativa_ordem_cronologica VARCHAR(150) NULL,
   criado_por BIGINT UNSIGNED NULL,
   criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -221,14 +224,21 @@ CREATE TABLE parcelas_pagamento (
   CONSTRAINT fk_parcela_documento FOREIGN KEY (documento_id) REFERENCES documentos_pagamento(id) ON DELETE CASCADE,
   CONSTRAINT fk_parcela_natureza FOREIGN KEY (natureza_despesa_id) REFERENCES naturezas_despesa(id),
   CONSTRAINT fk_parcela_fonte FOREIGN KEY (fonte_recurso_id) REFERENCES fontes_recurso(id),
-  CONSTRAINT fk_parcela_tipo_recurso FOREIGN KEY (tipo_recurso_id) REFERENCES tipos_recurso(id),
+  CONSTRAINT fk_parcela_origem FOREIGN KEY (origem_recurso_id) REFERENCES origens_recurso(id),
   CONSTRAINT fk_parcela_usuario FOREIGN KEY (criado_por) REFERENCES usuarios(id),
   CONSTRAINT chk_parcela_numero CHECK (numero_parcela > 0),
   CONSTRAINT chk_parcela_exercicio CHECK (exercicio_orcamentario BETWEEN 2000 AND 2100),
   CONSTRAINT chk_parcela_valor CHECK (valor_liquido > 0),
+  CONSTRAINT chk_parcela_empenho CHECK (CHAR_LENGTH(TRIM(numero_empenho)) > 0),
+  CONSTRAINT chk_parcela_historico CHECK (CHAR_LENGTH(TRIM(historico_parcela)) > 0),
+  CONSTRAINT chk_parcela_ipof CHECK (ipof REGEXP '^[0-9]{10}$'),
+  CONSTRAINT chk_parcela_ap_benner CHECK (ap_benner REGEXP '^[0-9]{10}$'),
+  CONSTRAINT chk_parcela_sequencial CHECK (sequencial REGEXP '^[0-9]{3}$'),
+  CONSTRAINT chk_parcela_grupo_despesa CHECK (grupo_despesa REGEXP '^[0-9]{2}$'),
   UNIQUE KEY uq_parcela_documento_numero (documento_id, numero_parcela),
   INDEX idx_parcela_documento (documento_id),
-  INDEX idx_parcela_empenho (numero_empenho)
+  INDEX idx_parcela_empenho (numero_empenho),
+  INDEX idx_parcela_cmdf_chave (fonte_recurso_id,exercicio_orcamentario,sequencial,grupo_despesa,origem_recurso_id)
 ) ENGINE=InnoDB;
 
 CREATE TABLE liquidacoes (
@@ -245,18 +255,43 @@ CREATE TABLE liquidacoes (
   INDEX idx_liquidacao_status (status)
 ) ENGINE=InnoDB;
 
-CREATE TABLE cmdf_etapas (
+-- A CMDF trabalha com grupos, não com status individual por parcela.
+-- A chave do grupo garante as regras de composição homogênea.
+CREATE TABLE cmdf_grupos (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-  parcela_id BIGINT UNSIGNED NOT NULL UNIQUE,
-  status ENUM('AGUARDANDO','LIQUIDADA','CANCELADA','ANULADA') NOT NULL DEFAULT 'AGUARDANDO',
-  data_conclusao DATE NULL,
-  usuario_id BIGINT UNSIGNED NULL,
+  fonte_recurso_id BIGINT UNSIGNED NOT NULL,
+  exercicio_orcamentario SMALLINT UNSIGNED NOT NULL,
+  sequencial CHAR(3) NOT NULL,
+  grupo_despesa CHAR(2) NOT NULL,
+  origem_recurso_id BIGINT UNSIGNED NOT NULL,
+  status ENUM('FECHADA','LIBERADA','ATENDIDA') NOT NULL DEFAULT 'FECHADA',
+  gerado_automaticamente TINYINT(1) NOT NULL DEFAULT 0,
+  criado_por BIGINT UNSIGNED NULL,
+  atualizado_por BIGINT UNSIGNED NULL,
   criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   atualizado_em DATETIME NULL,
-  CONSTRAINT fk_cmdf_parcela FOREIGN KEY (parcela_id) REFERENCES parcelas_pagamento(id) ON DELETE CASCADE,
-  CONSTRAINT fk_cmdf_usuario FOREIGN KEY (usuario_id) REFERENCES usuarios(id),
-  CONSTRAINT chk_cmdf_data CHECK (status <> 'LIQUIDADA' OR data_conclusao IS NOT NULL),
-  INDEX idx_cmdf_status (status)
+  CONSTRAINT fk_cmdf_grupo_fonte FOREIGN KEY (fonte_recurso_id) REFERENCES fontes_recurso(id),
+  CONSTRAINT fk_cmdf_grupo_origem FOREIGN KEY (origem_recurso_id) REFERENCES origens_recurso(id),
+  CONSTRAINT fk_cmdf_grupo_criado_por FOREIGN KEY (criado_por) REFERENCES usuarios(id),
+  CONSTRAINT fk_cmdf_grupo_atualizado_por FOREIGN KEY (atualizado_por) REFERENCES usuarios(id),
+  CONSTRAINT chk_cmdf_grupo_exercicio CHECK (exercicio_orcamentario BETWEEN 2000 AND 2100),
+  CONSTRAINT chk_cmdf_grupo_sequencial CHECK (sequencial REGEXP '^[0-9]{3}$'),
+  CONSTRAINT chk_cmdf_grupo_despesa CHECK (grupo_despesa REGEXP '^[0-9]{2}$'),
+  INDEX idx_cmdf_grupo_status (status),
+  INDEX idx_cmdf_grupo_chave (fonte_recurso_id,exercicio_orcamentario,sequencial,grupo_despesa,origem_recurso_id)
+) ENGINE=InnoDB;
+
+CREATE TABLE cmdf_grupo_parcelas (
+  grupo_id BIGINT UNSIGNED NOT NULL,
+  parcela_id BIGINT UNSIGNED NOT NULL,
+  adicionado_por BIGINT UNSIGNED NULL,
+  adicionado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (grupo_id,parcela_id),
+  UNIQUE KEY uq_cmdf_parcela_grupo (parcela_id),
+  CONSTRAINT fk_cgp_grupo FOREIGN KEY (grupo_id) REFERENCES cmdf_grupos(id) ON DELETE CASCADE,
+  CONSTRAINT fk_cgp_parcela FOREIGN KEY (parcela_id) REFERENCES parcelas_pagamento(id) ON DELETE CASCADE,
+  CONSTRAINT fk_cgp_usuario FOREIGN KEY (adicionado_por) REFERENCES usuarios(id),
+  INDEX idx_cgp_grupo (grupo_id)
 ) ENGINE=InnoDB;
 
 CREATE TABLE pagamentos (
@@ -266,7 +301,6 @@ CREATE TABLE pagamentos (
   data_pagamento DATE NULL,
   valor_liquido_pago DECIMAL(15,2) NULL,
   historico_pagamento TEXT NULL,
-  benner_ap VARCHAR(100) NULL,
   usuario_id BIGINT UNSIGNED NULL,
   criado_em DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   atualizado_em DATETIME NULL,
@@ -312,7 +346,7 @@ INSERT INTO perfis (id,nome,descricao) VALUES
 (2,'Gestor','Cadastro de obrigações, documentos e programação'),
 (3,'Inspetor','Execução da fase de inspeção'),
 (4,'Liquidação','Execução da liquidação'),
-(5,'CMDF','Execução da etapa CMDF'),
+(5,'CMDF','Gestão dos grupos da CMDF'),
 (6,'Consulta','Somente leitura');
 
 INSERT INTO permissoes (id,chave,nome) VALUES
@@ -322,11 +356,12 @@ INSERT INTO permissoes (id,chave,nome) VALUES
 (4,'inspecao.gerir','Executar inspeção'),
 (5,'parcela.gerir','Gerenciar programação/parcelas'),
 (6,'liquidacao.gerir','Executar liquidação'),
-(7,'cmdf.gerir','Executar CMDF'),
+(7,'cmdf.gerir','Processar status da CMDF'),
 (8,'pagamento.gerir','Registrar pagamento'),
 (9,'cadastro.gerir','Gerenciar cadastros auxiliares'),
 (10,'usuario.gerir','Gerenciar usuários'),
-(11,'perfil.gerir','Gerenciar perfis e permissões');
+(11,'perfil.gerir','Gerenciar perfis e permissões'),
+(12,'cmdf.grupo.ajustar','Criar e ajustar composição de grupos CMDF');
 
 INSERT INTO perfil_permissoes (perfil_id,permissao_id)
 SELECT 1,id FROM permissoes;
@@ -334,10 +369,10 @@ INSERT INTO perfil_permissoes (perfil_id,permissao_id) VALUES
 (2,1),(2,2),(2,3),(2,5),(2,8),(2,9),
 (3,1),(3,4),
 (4,1),(4,6),
-(5,1),(5,7),
+(5,1),(5,7),(5,12),
 (6,1);
 
-INSERT INTO tipos_recurso (codigo,nome) VALUES
+INSERT INTO origens_recurso (codigo,nome) VALUES
 ('RRT','RRT'),
 ('RDO','RDO');
 
