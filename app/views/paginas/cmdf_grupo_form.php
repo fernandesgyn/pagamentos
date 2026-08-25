@@ -18,10 +18,16 @@ $valorTotal=0.0;$temPago=false;foreach($parcelas as $p){$valorTotal+=(float)$p['
 <div class="card mb-3">
   <div class="card-header d-flex justify-content-between align-items-center"><h3 class="card-title mb-0">Parcelas do grupo</h3><strong><?=money($valorTotal)?></strong></div>
   <div class="card-body p-0"><div class="table-responsive"><table class="table table-hover mb-0 align-middle">
-    <thead><tr><th>Documento / Parcela</th><th>Fornecedor</th><th>Atesto</th><th>Empenho</th><th>IPOF</th><th>AP Benner</th><th>Valor</th><th>Liquidação</th><th>Pagamento</th><?php if($status==='FECHADA'&&Auth::can('cmdf.grupo.ajustar')):?><th class="text-end">Ação</th><?php endif;?></tr></thead>
+    <thead><tr><th>Documento / Parcela</th><th>Fornecedor</th><th>Atesto</th><th>Empenho</th><th>IPOF</th><th>AP Benner</th><th>Valor</th><th>Liquidação</th><th>Pagamento</th><th class="text-end">Ações</th></tr></thead>
     <tbody>
-      <?php foreach($parcelas as $p):?><tr><td><strong><?=e($p['tipo_documento'])?> <?=e($p['documento_numero'])?></strong><div class="small">Parcela <?=e($p['numero_parcela'])?></div></td><td><?=e($p['fornecedor'])?></td><td><?=e($p['data_atesto'])?></td><td><?=e($p['numero_empenho'])?></td><td><?=e($p['ipof'])?></td><td><?=e($p['ap_benner'])?></td><td><?=money($p['valor_liquido'])?></td><td><?=e($p['data_liquidacao'])?></td><td><?=e($p['status_pagamento']??'—')?></td>
-      <?php if($status==='FECHADA'&&Auth::can('cmdf.grupo.ajustar')):?><td class="text-end"><form method="post" action="/cmdf/grupos/<?=e($grupo['id'])?>/parcelas/<?=e($p['parcela_id'])?>/remover" class="d-inline"><?=Csrf::field()?><button class="btn btn-sm btn-outline-danger" onclick="return confirm('Remover esta parcela do grupo CMDF?')"><i class="fa-solid fa-trash me-1"></i>Remover</button></form></td><?php endif;?></tr><?php endforeach;?>
+      <?php foreach($parcelas as $p):?><tr>
+        <td><strong><?=e($p['tipo_documento'])?> <?=e($p['documento_numero'])?></strong><div class="small">Parcela <?=e($p['numero_parcela'])?></div></td><td><?=e($p['fornecedor'])?></td><td><?=e($p['data_atesto'])?></td><td><?=e($p['numero_empenho'])?></td><td><?=e($p['ipof'])?></td><td><?=e($p['ap_benner'])?></td><td><?=money($p['valor_liquido'])?></td><td><?=e($p['data_liquidacao'])?></td><td><?=e($p['status_pagamento']??'—')?></td>
+        <td class="text-end portal-actions-cell"><div class="portal-action-group portal-table-actions justify-content-end">
+          <a href="/documentos/<?=e($p['documento_id'])?>" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-file-lines me-1"></i>Ver documento</a>
+          <?php if($status==='FECHADA'&&Auth::can('cmdf.grupo.ajustar')):?><form method="post" action="/cmdf/grupos/<?=e($grupo['id'])?>/parcelas/<?=e($p['parcela_id'])?>/remover" class="d-inline m-0"><?=Csrf::field()?><button class="btn btn-sm btn-outline-danger" onclick="return confirm('Remover esta parcela do grupo CMDF?')"><i class="fa-solid fa-trash me-1"></i>Remover do grupo</button></form><?php endif;?>
+          <?php if($status==='ATENDIDA'&&!empty($p['status_pagamento'])):?><a href="/pagamentos?cmdf_grupo_id=<?=e($grupo['id'])?>&parcela_numero=<?=e($p['numero_parcela'])?>" class="btn btn-sm btn-outline-success"><i class="fa-solid fa-money-check-dollar me-1"></i>Ver pagamento</a><?php endif;?>
+        </div></td>
+      </tr><?php endforeach;?>
       <?php if(!$parcelas):?><tr><td colspan="10" class="text-center text-body-secondary py-4">Grupo sem parcelas.</td></tr><?php endif;?>
     </tbody>
   </table></div></div>
