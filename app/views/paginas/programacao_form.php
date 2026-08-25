@@ -17,7 +17,7 @@ $proxima=empty($parcelas)?1:(max(array_map(static fn($p)=>(int)$p['numero_parcel
 
 <?php if(!$doc['permite_avancar']):?><div class="alert alert-warning">Este documento não está liberado pela Inspeção para Programação.</div><?php endif;?>
 <?php if($fechada):?>
-<div class="alert alert-success"><i class="fa-solid fa-circle-check me-1"></i><strong>Programação concluída.</strong> A soma das parcelas fechou o valor líquido do documento. As parcelas estão disponíveis individualmente para Liquidação.</div>
+<div class="alert alert-success"><i class="fa-solid fa-circle-check me-1"></i><strong>Programação concluída.</strong> A soma das parcelas fechou o valor líquido do documento. Se precisar corrigir uma parcela, desfaça primeiro qualquer etapa posterior que já tenha sido executada.</div>
 <?php else:?>
 <div class="alert alert-info"><i class="fa-solid fa-circle-info me-1"></i>Cadastre as parcelas até o saldo chegar a R$ 0,00. Todos os campos marcados com * são obrigatórios.</div>
 <?php endif;?>
@@ -51,13 +51,22 @@ $proxima=empty($parcelas)?1:(max(array_map(static fn($p)=>(int)$p['numero_parcel
 <div class="card">
   <div class="card-header"><h3 class="card-title">Parcelas programadas</h3></div>
   <div class="card-body p-0"><div class="table-responsive"><table class="table table-hover mb-0 align-middle">
-    <thead><tr><th>Parcela</th><th>Empenho</th><th>Natureza</th><th>Exercício</th><th>Fonte</th><th>Origem</th><th>Valor</th><th>Tipo</th><th>Vencimento</th><th>IPOF</th><th>AP Benner</th><th>Seq.</th><th>Grupo</th><th>Liquidação</th></tr></thead>
+    <thead><tr><th>Parcela</th><th>Empenho</th><th>Natureza</th><th>Exercício</th><th>Fonte</th><th>Origem</th><th>Valor</th><th>Tipo</th><th>Vencimento</th><th>IPOF</th><th>AP Benner</th><th>Seq.</th><th>Grupo</th><th>Liquidação</th><th>Correção</th></tr></thead>
     <tbody>
-      <?php foreach($parcelas as $p):?><tr>
+      <?php foreach($parcelas as $p):
+        $podeDesfazer=((string)($p['status_liquidacao']??'AGUARDANDO')==='AGUARDANDO'&&empty($p['cmdf_grupo_id'])&&empty($p['status_pagamento']));
+      ?><tr>
         <td><strong><?=e($p['numero_parcela'])?></strong></td><td><?=e($p['numero_empenho'])?></td><td><?=e($p['natureza_codigo'])?></td><td><?=e($p['exercicio_orcamentario'])?></td><td><?=e($p['fonte_codigo'])?></td><td><?=e($p['origem_codigo'])?></td><td><?=money($p['valor_liquido'])?></td><td><?=e($p['tipo'])?></td><td><?=e($p['data_vencimento'])?></td><td><?=e($p['ipof'])?></td><td><?=e($p['ap_benner'])?></td><td><?=e($p['sequencial'])?></td><td><?=e($p['grupo_despesa'])?></td><td><span class="badge <?=$fechada?'text-bg-warning':'text-bg-secondary'?>"><?=e($p['status_liquidacao']??'AGUARDANDO')?></span></td>
+        <td style="min-width:230px">
+          <?php if($podeDesfazer):?>
+            <details><summary class="btn btn-sm btn-outline-danger">Desfazer programação</summary><form method="post" action="/programacao/<?=e($doc['id'])?>/parcelas/<?=e($p['id'])?>/desfazer" class="mt-2" onsubmit="return confirm('Remover esta parcela da Programação?')"><?=Csrf::field()?><input name="motivo" minlength="5" maxlength="255" class="form-control form-control-sm mb-1" required placeholder="Motivo da correção"><button class="btn btn-sm btn-danger w-100"><i class="fa-solid fa-rotate-left me-1"></i>Confirmar</button></form></details>
+          <?php elseif(!empty($p['status_pagamento'])):?><span class="small text-body-secondary">Desfaça o Pagamento primeiro.</span>
+          <?php elseif(!empty($p['cmdf_grupo_id'])):?><span class="small text-body-secondary">Desfaça/remova da CMDF primeiro.</span>
+          <?php else:?><span class="small text-body-secondary">Desfaça a Liquidação primeiro.</span><?php endif;?>
+        </td>
       </tr><?php endforeach;?>
-      <?php if(!$parcelas):?><tr><td colspan="14" class="text-center text-body-secondary py-4">Nenhuma parcela programada.</td></tr><?php endif;?>
+      <?php if(!$parcelas):?><tr><td colspan="15" class="text-center text-body-secondary py-4">Nenhuma parcela programada.</td></tr><?php endif;?>
     </tbody>
   </table></div></div>
 </div>
-<?php unset($programado,$saldo,$proxima,$parcela,$tipo);?>
+<?php unset($programado,$saldo,$proxima,$parcela,$tipo,$podeDesfazer);?>
