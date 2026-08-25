@@ -21,11 +21,23 @@ $tableFilters=[
         <td><?=money($i['valor_liquido'])?></td>
         <td><?=e($i['data_envio_cooinsp']??'—')?></td>
         <td><span class="badge <?=$i['permite_avancar']?'text-bg-success':'text-bg-warning'?>"><?=e($i['status_inspecao'])?></span></td>
-        <td class="text-end portal-actions-cell"><div class="portal-action-group portal-table-actions justify-content-end"><a href="/inspecoes/<?=e($i['documento_id'])?>" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>Inspecionar</a></div></td>
+        <td class="text-end portal-actions-cell">
+          <div class="portal-action-group portal-table-actions justify-content-end">
+            <a href="/inspecoes/<?=e($i['documento_id'])?>" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-magnifying-glass me-1" aria-hidden="true"></i>Inspecionar</a>
+            <?php if((int)$i['encerra_inspecao']===1):?>
+              <?php if((int)$i['parcelas_total']===0):?>
+                <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#reversaoModal" data-reversao-modal data-reversao-action="/inspecoes/<?=e($i['documento_id'])?>/desfazer" data-reversao-titulo="Desfazer conclusão da Inspeção" data-reversao-texto="O documento voltará para Inspeção andamento. A reversão ficará registrada na auditoria." data-reversao-botao="Desfazer conclusão"><i class="fa-solid fa-rotate-left me-1"></i>Desfazer conclusão</button>
+              <?php else:?>
+                <button type="button" class="btn btn-sm btn-outline-secondary" disabled title="Desfaça a Programação antes de reabrir a Inspeção"><i class="fa-solid fa-lock me-1"></i>Desfazer conclusão</button>
+              <?php endif;?>
+            <?php endif;?>
+          </div>
+        </td>
       </tr><?php endforeach;?>
       <?php if(!$itens):?><tr data-table-empty><td colspan="8" class="text-center text-body-secondary py-4">Fila vazia.</td></tr><?php endif;?>
     </tbody>
   </table></div></div>
   <?php require BASE_PATH.'/app/views/components/admin_table_footer.php';?>
 </div>
+<?php require BASE_PATH.'/app/views/components/reversao_modal.php';?>
 <?php unset($tableId,$tablePageSize,$tableFilters);?>

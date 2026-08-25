@@ -48,25 +48,38 @@ $proxima=empty($parcelas)?1:(max(array_map(static fn($p)=>(int)$p['numero_parcel
 </form>
 <?php endif;?>
 
-<div class="card">
+<?php
+$tableId='programacao-parcelas-table';
+$tablePageSize=10;
+$tableFilters=[
+ ['label'=>'Pesquisar parcelas','column'=>'*','type'=>'search','placeholder'=>'Empenho, natureza, IPOF ou AP Benner','class'=>'col-12 col-lg-5'],
+ ['label'=>'Liquidação','column'=>13,'type'=>'select','populate'=>true,'empty'=>'Todas','class'=>'col-12 col-md-4 col-lg-2'],
+];
+?>
+<div class="card" data-admin-table data-page-size="<?=$tablePageSize?>">
   <div class="card-header"><h3 class="card-title">Parcelas programadas</h3></div>
-  <div class="card-body p-0"><div class="table-responsive"><table class="table table-hover mb-0 align-middle">
-    <thead><tr><th>Parcela</th><th>Empenho</th><th>Natureza</th><th>Exercício</th><th>Fonte</th><th>Origem</th><th>Valor</th><th>Tipo</th><th>Vencimento</th><th>IPOF</th><th>AP Benner</th><th>Seq.</th><th>Grupo</th><th>Liquidação</th><th>Correção</th></tr></thead>
+  <?php require BASE_PATH.'/app/views/components/admin_table_filters.php';?>
+  <div class="card-body p-0"><div class="table-responsive"><table class="table table-hover table-striped mb-0 align-middle">
+    <thead><tr><th>Parcela</th><th>Empenho</th><th>Natureza</th><th>Exercício</th><th>Fonte</th><th>Origem</th><th>Valor</th><th>Tipo</th><th>Vencimento</th><th>IPOF</th><th>AP Benner</th><th>Seq.</th><th>Grupo</th><th>Liquidação</th><th class="text-end portal-actions-cell" data-table-nosort>Ações</th></tr></thead>
     <tbody>
       <?php foreach($parcelas as $p):
         $podeDesfazer=((string)($p['status_liquidacao']??'AGUARDANDO')==='AGUARDANDO'&&empty($p['cmdf_grupo_id'])&&empty($p['status_pagamento']));
-      ?><tr>
-        <td><strong><?=e($p['numero_parcela'])?></strong></td><td><?=e($p['numero_empenho'])?></td><td><?=e($p['natureza_codigo'])?></td><td><?=e($p['exercicio_orcamentario'])?></td><td><?=e($p['fonte_codigo'])?></td><td><?=e($p['origem_codigo'])?></td><td><?=money($p['valor_liquido'])?></td><td><?=e($p['tipo'])?></td><td><?=e($p['data_vencimento'])?></td><td><?=e($p['ipof'])?></td><td><?=e($p['ap_benner'])?></td><td><?=e($p['sequencial'])?></td><td><?=e($p['grupo_despesa'])?></td><td><span class="badge <?=$fechada?'text-bg-warning':'text-bg-secondary'?>"><?=e($p['status_liquidacao']??'AGUARDANDO')?></span></td>
-        <td style="min-width:230px">
-          <?php if($podeDesfazer):?>
-            <details><summary class="btn btn-sm btn-outline-danger">Desfazer programação</summary><form method="post" action="/programacao/<?=e($doc['id'])?>/parcelas/<?=e($p['id'])?>/desfazer" class="mt-2" onsubmit="return confirm('Remover esta parcela da Programação?')"><?=Csrf::field()?><input name="motivo" minlength="5" maxlength="255" class="form-control form-control-sm mb-1" required placeholder="Motivo da correção"><button class="btn btn-sm btn-danger w-100"><i class="fa-solid fa-rotate-left me-1"></i>Confirmar</button></form></details>
-          <?php elseif(!empty($p['status_pagamento'])):?><span class="small text-body-secondary">Desfaça o Pagamento primeiro.</span>
-          <?php elseif(!empty($p['cmdf_grupo_id'])):?><span class="small text-body-secondary">Desfaça/remova da CMDF primeiro.</span>
-          <?php else:?><span class="small text-body-secondary">Desfaça a Liquidação primeiro.</span><?php endif;?>
+      ?><tr data-record-id="<?=e($p['id'])?>">
+        <td><strong><?=e($p['numero_parcela'])?></strong></td><td><?=e($p['numero_empenho'])?></td><td><?=e($p['natureza_codigo'])?></td><td><?=e($p['exercicio_orcamentario'])?></td><td><?=e($p['fonte_codigo'])?></td><td><?=e($p['origem_codigo'])?></td><td><?=money($p['valor_liquido'])?></td><td><?=e($p['tipo'])?></td><td><?=e($p['data_vencimento'])?></td><td><?=e($p['ipof'])?></td><td><?=e($p['ap_benner'])?></td><td><?=e($p['sequencial'])?></td><td><?=e($p['grupo_despesa'])?></td><td><span class="badge <?=$p['status_liquidacao']==='LIQUIDADA'?'text-bg-success':'text-bg-warning'?>"><?=e($p['status_liquidacao']??'AGUARDANDO')?></span></td>
+        <td class="text-end portal-actions-cell">
+          <div class="portal-action-group portal-table-actions justify-content-end">
+            <?php if($podeDesfazer):?>
+              <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#reversaoModal" data-reversao-modal data-reversao-action="/programacao/<?=e($doc['id'])?>/parcelas/<?=e($p['id'])?>/desfazer" data-reversao-titulo="Desfazer Programação da parcela <?=e($p['numero_parcela'])?>" data-reversao-texto="Esta parcela será removida da Programação, o saldo do documento será reaberto e as parcelas posteriores serão renumeradas." data-reversao-botao="Desfazer programação"><i class="fa-solid fa-rotate-left me-1"></i>Desfazer programação</button>
+            <?php elseif(!empty($p['status_pagamento'])):?><button type="button" class="btn btn-sm btn-outline-secondary" disabled title="Desfaça o Pagamento primeiro"><i class="fa-solid fa-lock me-1"></i>Desfazer programação</button>
+            <?php elseif(!empty($p['cmdf_grupo_id'])):?><a href="/cmdf/grupos/<?=e($p['cmdf_grupo_id'])?>" class="btn btn-sm btn-outline-secondary" title="Desfaça a CMDF e remova a parcela do grupo primeiro"><i class="fa-solid fa-layer-group me-1"></i>Abrir CMDF</a>
+            <?php else:?><a href="/liquidacoes/<?=e($p['id'])?>" class="btn btn-sm btn-outline-secondary" title="Desfaça a Liquidação primeiro"><i class="fa-solid fa-check-double me-1"></i>Abrir Liquidação</a><?php endif;?>
+          </div>
         </td>
       </tr><?php endforeach;?>
-      <?php if(!$parcelas):?><tr><td colspan="15" class="text-center text-body-secondary py-4">Nenhuma parcela programada.</td></tr><?php endif;?>
+      <?php if(!$parcelas):?><tr data-table-empty><td colspan="15" class="text-center text-body-secondary py-4">Nenhuma parcela programada.</td></tr><?php endif;?>
     </tbody>
   </table></div></div>
+  <?php require BASE_PATH.'/app/views/components/admin_table_footer.php';?>
 </div>
-<?php unset($programado,$saldo,$proxima,$parcela,$tipo,$podeDesfazer);?>
+<?php require BASE_PATH.'/app/views/components/reversao_modal.php';?>
+<?php unset($programado,$saldo,$proxima,$parcela,$tipo,$podeDesfazer,$tableId,$tablePageSize,$tableFilters);?>

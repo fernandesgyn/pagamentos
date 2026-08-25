@@ -1,10 +1,13 @@
 <?php
+$grupoFiltro=(int)($_GET['cmdf_grupo_id']??0);
+$parcelaNumeroFiltro=(int)($_GET['parcela_numero']??0);
 $tableId='pagamentos-table';
 $tablePageSize=10;
 $tableFilters=[
- ['label'=>'Pesquisa geral','column'=>'*','type'=>'search','placeholder'=>'Documento, fornecedor, empenho, IPOF ou AP Benner','class'=>'col-12 col-lg-4'],
+ ['label'=>'Pesquisa geral','column'=>'*','type'=>'search','placeholder'=>'Documento, fornecedor, empenho, IPOF ou AP Benner','initial'=>$parcelaNumeroFiltro>0?'Parcela '.$parcelaNumeroFiltro:'','class'=>'col-12 col-lg-4'],
  ['label'=>'Status','column'=>8,'type'=>'select','populate'=>true,'empty'=>'Todos','class'=>'col-12 col-md-4 col-lg-2'],
  ['label'=>'Fornecedor','column'=>1,'type'=>'select','populate'=>true,'empty'=>'Todos','class'=>'col-12 col-md-4 col-lg-2'],
+ ['label'=>'Grupo CMDF','column'=>9,'type'=>'select','populate'=>true,'empty'=>'Todos','initial'=>$grupoFiltro>0?'#'.$grupoFiltro:'','class'=>'col-12 col-md-4 col-lg-2'],
 ];
 ?>
 <div class="card" data-admin-table data-page-size="<?=$tablePageSize?>">
@@ -30,11 +33,13 @@ $tableFilters=[
             <div><strong><?=e($p['data_pagamento'])?></strong> · <?=money($p['valor_liquido_pago'])?></div><div class="small text-body-secondary"><?=e($p['historico_pagamento']??'')?></div>
           <?php endif;?>
         </td>
-        <td class="text-end" style="min-width:220px">
-          <a href="/documentos/<?=e($p['documento_id'])?>" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-arrow-up-right-from-square me-1"></i>Abrir</a>
-          <?php if($p['status']==='PAGO'):?>
-            <details class="mt-1 text-start"><summary class="btn btn-sm btn-outline-danger">Desfazer pagamento</summary><form method="post" action="/documentos/<?=e($p['documento_id'])?>/parcelas/<?=e($p['parcela_id'])?>/pagamento/desfazer" class="mt-2" onsubmit="return confirm('Desfazer este pagamento?')"><?=Csrf::field()?><input name="motivo" minlength="5" maxlength="255" class="form-control form-control-sm mb-1" required placeholder="Motivo da correção"><button class="btn btn-sm btn-danger w-100"><i class="fa-solid fa-rotate-left me-1"></i>Confirmar reversão</button></form></details>
-          <?php endif;?>
+        <td class="text-end portal-actions-cell" style="min-width:220px">
+          <div class="portal-action-group portal-table-actions justify-content-end">
+            <a href="/documentos/<?=e($p['documento_id'])?>" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-arrow-up-right-from-square me-1"></i>Abrir</a>
+            <?php if($p['status']==='PAGO'):?>
+              <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#reversaoModal" data-reversao-modal data-reversao-action="/documentos/<?=e($p['documento_id'])?>/parcelas/<?=e($p['parcela_id'])?>/pagamento/desfazer" data-reversao-titulo="Desfazer Pagamento" data-reversao-texto="O pagamento voltará para Aguardando e os dados do pagamento atual serão limpos. A reversão ficará registrada na auditoria." data-reversao-botao="Desfazer pagamento"><i class="fa-solid fa-rotate-left me-1"></i>Desfazer pagamento</button>
+            <?php endif;?>
+          </div>
         </td>
       </tr><?php endforeach;?>
       <?php if(!$pagamentos):?><tr data-table-empty><td colspan="12" class="text-center text-body-secondary py-4">Nenhuma parcela liberada por grupo CMDF Atendida.</td></tr><?php endif;?>
@@ -42,4 +47,5 @@ $tableFilters=[
   </table></div></div>
   <?php require BASE_PATH.'/app/views/components/admin_table_footer.php';?>
 </div>
-<?php unset($tableId,$tablePageSize,$tableFilters);?>
+<?php require BASE_PATH.'/app/views/components/reversao_modal.php';?>
+<?php unset($grupoFiltro,$parcelaNumeroFiltro,$tableId,$tablePageSize,$tableFilters);?>
