@@ -11,13 +11,17 @@ final class CmdfGrupo
         $sql="SELECT g.id,g.status,g.gerado_automaticamente,g.exercicio_orcamentario,g.sequencial,g.grupo_despesa,
             fr.codigo fonte_codigo,fr.nome fonte_nome,ori.codigo origem_codigo,ori.nome origem_nome,
             COUNT(gp.parcela_id) parcelas_total,COALESCE(SUM(p.valor_liquido),0) valor_total,
-            MIN(d.data_atesto) menor_data_atesto,MAX(d.data_atesto) maior_data_atesto,g.criado_em,g.atualizado_em
+            MIN(d.data_atesto) menor_data_atesto,MAX(d.data_atesto) maior_data_atesto,
+            SUM(CASE WHEN pg.status='PAGO' THEN 1 ELSE 0 END) pagamentos_pagos,
+            SUM(CASE WHEN pg.status IS NOT NULL AND pg.status<>'AGUARDANDO' THEN 1 ELSE 0 END) pagamentos_movimentados,
+            g.criado_em,g.atualizado_em
           FROM cmdf_grupos g
           JOIN fontes_recurso fr ON fr.id=g.fonte_recurso_id
           JOIN origens_recurso ori ON ori.id=g.origem_recurso_id
           LEFT JOIN cmdf_grupo_parcelas gp ON gp.grupo_id=g.id
           LEFT JOIN parcelas_pagamento p ON p.id=gp.parcela_id
           LEFT JOIN documentos_pagamento d ON d.id=p.documento_id
+          LEFT JOIN pagamentos pg ON pg.parcela_id=p.id
           GROUP BY g.id,g.status,g.gerado_automaticamente,g.exercicio_orcamentario,g.sequencial,g.grupo_despesa,fr.codigo,fr.nome,ori.codigo,ori.nome,g.criado_em,g.atualizado_em
           ORDER BY CASE g.status WHEN 'FECHADA' THEN 0 WHEN 'LIBERADA' THEN 1 ELSE 2 END,g.id DESC";
         return $this->db->query($sql)->fetchAll();
