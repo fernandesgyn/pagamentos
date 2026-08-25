@@ -155,4 +155,24 @@ document.addEventListener('DOMContentLoaded', function () {
     supplier.addEventListener('change', filterObligations);
     filterObligations();
   }
+
+  var reversaoModal = document.getElementById('reversaoModal');
+  if (reversaoModal) {
+    var reversaoForm = reversaoModal.querySelector('[data-reversao-form]');
+    var reversaoTitulo = reversaoModal.querySelector('[data-reversao-titulo]');
+    var reversaoTexto = reversaoModal.querySelector('[data-reversao-texto]');
+    var reversaoConfirmar = reversaoModal.querySelector('[data-reversao-confirmar]');
+    var reversaoMotivo = reversaoModal.querySelector('textarea[name="motivo"]');
+
+    document.querySelectorAll('[data-reversao-modal]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        if (!reversaoForm) return;
+        reversaoForm.action = button.dataset.reversaoAction || '';
+        if (reversaoTitulo) reversaoTitulo.textContent = button.dataset.reversaoTitulo || 'Desfazer ação';
+        if (reversaoTexto) reversaoTexto.textContent = button.dataset.reversaoTexto || 'Esta reversão será registrada na auditoria.';
+        if (reversaoConfirmar) reversaoConfirmar.lastChild.textContent = button.dataset.reversaoBotao || 'Confirmar reversão';
+        if (reversaoMotivo) reversaoMotivo.value = '';
+      });
+    });
+  }
 });
