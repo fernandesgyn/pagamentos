@@ -42,7 +42,7 @@ final class FluxoReversao
         }
     }
 
-    public function desfazerProgramacao(int $parcelaId, ?string $motivo = null): int
+    public function desfazerProgramacao(int $documentoId, int $parcelaId, ?string $motivo = null): void
     {
         $motivo = $this->validarMotivo($motivo);
         $this->db->beginTransaction();
@@ -54,16 +54,17 @@ final class FluxoReversao
             $q->execute([$parcelaId]);
             $p = $q->fetch();
             if (!$p) throw new RuntimeException('Parcela não encontrada.');
+            if ((int)$p['documento_id'] !== $documentoId) throw new RuntimeException('Parcela não pertence ao documento informado.');
             if ((string)$p['status_liquidacao'] !== 'AGUARDANDO') throw new RuntimeException('A Liquidação desta parcela já foi movimentada. Desfaça a Liquidação antes de desfazer a Programação.');
-            if (!empty($p['grupo_id'])) throw new RuntimeException('A parcela pertence a um grupo CMDF. Desfaça a CMDF e a Liquidação antes de desfazer a Programação.');
+            if (!empty($p['grupo_id'])) throw new RuntimeException('A parcela pertence a um grupo CMDF. Desfaça a CMDF e remova a parcela do grupo antes de desfazer a Programação.');
             if (!empty($p['status_pagamento'])) throw new RuntimeException('Existe registro de Pagamento para esta parcela. Desfaça as etapas posteriores antes de desfazer a Programação.');
 
-            $documentoId = (int)$p['documento_id'];
             $this->auditar('parcelas_pagamento',$parcelaId,'DESFAZER_PROGRAMACAO',$p,['excluida'=>true,'motivo'=>$motivo]);
-            $this->db->prepare("DELETE FROM parcelas_pagamento WHERE id=?")->execute([$parcelaId]);
+            $del = $this->db->prepare("DELETE FROM parcelas_pagamento WHERE id=? AND documento_id=?");
+            $del->execute([$parcelaId,$documentoId]);
+            if ($del->rowCount() !== 1) throw new RuntimeException('Não foi possível remover a parcela da Programação.');
             $this->renumerarParcelas($documentoId);
             $this->db->commit();
-            return $documentoId;
         } catch (Throwable $e) {
             if ($this->db->inTransaction()) $this->db->rollBack();
             throw $e;
@@ -81,7 +82,7 @@ final class FluxoReversao
             $l = $q->fetch();
             if (!$l) throw new RuntimeException('Liquidação não encontrada.');
             if ((string)$l['status'] === 'AGUARDANDO') throw new RuntimeException('A Liquidação já está em Aguardando.');
-            if (!empty($l['grupo_id'])) throw new RuntimeException('A parcela já está vinculada à CMDF. Remova/desfaça a CMDF antes de desfazer a Liquidação.');
+            if (!empty($l['grupo_id'])) throw new RuntimeException('A parcela já está vinculada à CMDF. Volte a CMDF para Fechada e remova a parcela do grupo antes de desfazer a Liquidação.');
 
             $this->db->prepare("UPDATE liquidacoes SET status='AGUARDANDO',data_liquidacao=NULL,usuario_id=NULL,atualizado_em=NOW() WHERE parcela_id=?")->execute([$parcelaId]);
             $this->auditar('liquidacoes',(int)$l['id'],'DESFAZER_LIQUIDACAO',$l,['status'=>'AGUARDANDO','motivo'=>$motivo]);
@@ -105,9 +106,9 @@ final class FluxoReversao
             if ($status === 'FECHADA') throw new RuntimeException('O grupo CMDF já está em Fechada. Para corrigir a composição, inclua ou remova parcelas.');
 
             if ($status === 'ATENDIDA') {
-                $pagos = $this->db->prepare("SELECT COUNT(*) FROM pagamentos pg JOIN cmdf_grupo_parcelas gp ON gp.parcela_id=pg.parcela_id WHERE gp.grupo_id=? AND pg.status='PAGO'");
-                $pagos->execute([$grupoId]);
-                if ((int)$pagos->fetchColumn() > 0) throw new RuntimeException('Há parcela(s) paga(s) neste grupo. Desfaça o Pagamento antes de desfazer a CMDF Atendida.');
+                $bloqueios = $this->db->prepare("SELECT COUNT(*) FROM pagamentos pg JOIN cmdf_grupo_parcelas gp ON gp.parcela_id=pg.parcela_id WHERE gp.grupo_id=? AND pg.status<>'AGUARDANDO'");
+                $bloqueios->execute([$grupoId]);
+                if ((int)$bloqueios->fetchColumn() > 0) throw new RuntimeException('Há Pagamento já movimentado neste grupo. Desfaça o Pagamento antes de desfazer a CMDF Atendida.');
                 $this->db->prepare("DELETE pg FROM pagamentos pg JOIN cmdf_grupo_parcelas gp ON gp.parcela_id=pg.parcela_id WHERE gp.grupo_id=? AND pg.status='AGUARDANDO'")->execute([$grupoId]);
                 $novo = 'LIBERADA';
             } else {
@@ -124,15 +125,16 @@ final class FluxoReversao
         }
     }
 
-    public function desfazerPagamento(int $parcelaId, ?string $motivo = null): void
+    public function desfazerPagamento(int $documentoId, int $parcelaId, ?string $motivo = null): void
     {
         $motivo = $this->validarMotivo($motivo);
         $this->db->beginTransaction();
         try {
-            $q = $this->db->prepare("SELECT * FROM pagamentos WHERE parcela_id=? FOR UPDATE");
+            $q = $this->db->prepare("SELECT pg.*,p.documento_id FROM pagamentos pg JOIN parcelas_pagamento p ON p.id=pg.parcela_id WHERE pg.parcela_id=? FOR UPDATE");
             $q->execute([$parcelaId]);
             $pg = $q->fetch();
             if (!$pg) throw new RuntimeException('Pagamento não encontrado.');
+            if ((int)$pg['documento_id'] !== $documentoId) throw new RuntimeException('Parcela não pertence ao documento informado.');
             if ((string)$pg['status'] !== 'PAGO') throw new RuntimeException('Somente um pagamento com status Pago pode ser desfeito.');
 
             $this->db->prepare("UPDATE pagamentos SET status='AGUARDANDO',data_pagamento=NULL,valor_liquido_pago=NULL,historico_pagamento=NULL,usuario_id=NULL,atualizado_em=NOW() WHERE parcela_id=?")->execute([$parcelaId]);
@@ -149,8 +151,8 @@ final class FluxoReversao
         $st = $this->db->prepare("SELECT id FROM parcelas_pagamento WHERE documento_id=? ORDER BY numero_parcela,id");
         $st->execute([$documentoId]);
         $ids = array_map('intval',$st->fetchAll(PDO::FETCH_COLUMN));
-        $tmp = 100000;
-        foreach ($ids as $id) $this->db->prepare("UPDATE parcelas_pagamento SET numero_parcela=? WHERE id=?")->execute([$tmp++,$id]);
+        $offset = 100000 + count($ids);
+        foreach ($ids as $id) $this->db->prepare("UPDATE parcelas_pagamento SET numero_parcela=? WHERE id=?")->execute([$offset++,$id]);
         $n = 1;
         foreach ($ids as $id) $this->db->prepare("UPDATE parcelas_pagamento SET numero_parcela=? WHERE id=?")->execute([$n++,$id]);
     }
