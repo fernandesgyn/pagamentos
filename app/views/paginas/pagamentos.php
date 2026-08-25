@@ -1,9 +1,10 @@
 <?php
 $grupoFiltro=(int)($_GET['cmdf_grupo_id']??0);
+$parcelaNumeroFiltro=(int)($_GET['parcela_numero']??0);
 $tableId='pagamentos-table';
 $tablePageSize=10;
 $tableFilters=[
- ['label'=>'Pesquisa geral','column'=>'*','type'=>'search','placeholder'=>'Documento, fornecedor, empenho, IPOF ou AP Benner','class'=>'col-12 col-lg-4'],
+ ['label'=>'Pesquisa geral','column'=>'*','type'=>'search','placeholder'=>'Documento, fornecedor, empenho, IPOF ou AP Benner','initial'=>$parcelaNumeroFiltro>0?'Parcela '.$parcelaNumeroFiltro:'','class'=>'col-12 col-lg-4'],
  ['label'=>'Status','column'=>8,'type'=>'select','populate'=>true,'empty'=>'Todos','class'=>'col-12 col-md-4 col-lg-2'],
  ['label'=>'Fornecedor','column'=>1,'type'=>'select','populate'=>true,'empty'=>'Todos','class'=>'col-12 col-md-4 col-lg-2'],
  ['label'=>'Grupo CMDF','column'=>9,'type'=>'select','populate'=>true,'empty'=>'Todos','initial'=>$grupoFiltro>0?'#'.$grupoFiltro:'','class'=>'col-12 col-md-4 col-lg-2'],
@@ -47,4 +48,4 @@ $tableFilters=[
   <?php require BASE_PATH.'/app/views/components/admin_table_footer.php';?>
 </div>
 <?php require BASE_PATH.'/app/views/components/reversao_modal.php';?>
-<?php unset($grupoFiltro,$tableId,$tablePageSize,$tableFilters);?>
+<?php unset($grupoFiltro,$parcelaNumeroFiltro,$tableId,$tablePageSize,$tableFilters);?>
