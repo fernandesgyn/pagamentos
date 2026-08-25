@@ -58,7 +58,6 @@ jobs:
           test -n "$STATUS_ANDAMENTO"
           post http://127.0.0.1:8080/inspecoes/9008 http://127.0.0.1:8080/inspecoes/9008 --data-urlencode "status_id=$STATUS_ANDAMENTO" --data-urlencode 'observacao=Tentativa de retorno sem usar desfazer'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT s.nome FROM pagamentos.inspecoes i JOIN pagamentos.status_inspecao s ON s.id=i.status_id WHERE i.documento_id=9008;" | grep '^Cancelada$'
-
           post http://127.0.0.1:8080/liquidacoes/9001 http://127.0.0.1:8080/liquidacoes/9001 --data-urlencode 'status=AGUARDANDO'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT status FROM pagamentos.liquidacoes WHERE parcela_id=9001;" | grep '^LIQUIDADA$'
 
@@ -97,7 +96,7 @@ jobs:
 
           # Programação: remove a parcela, reabre o saldo e renumera somente as posteriores.
           post http://127.0.0.1:8080/programacao/9001 http://127.0.0.1:8080/programacao/9001/parcelas/9001/desfazer --data-urlencode 'motivo=Programação cadastrada incorretamente'
-          if ! mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.parcelas_pagamento WHERE id=9001;" | grep '^0$'; then echo 'Resposta da reversão de Programação:' >&2; cat /tmp/post.html >&2; exit 1; fi
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.parcelas_pagamento WHERE id=9001;" | grep '^0$'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.parcelas_pagamento WHERE documento_id=9001;" | grep '^2$'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT GROUP_CONCAT(numero_parcela ORDER BY numero_parcela) FROM pagamentos.parcelas_pagamento WHERE documento_id=9001;" | grep '^1,2$'
 
@@ -109,8 +108,8 @@ jobs:
           post http://127.0.0.1:8080/inspecoes/9008 http://127.0.0.1:8080/inspecoes/9008/desfazer --data-urlencode 'motivo=Inspeção precisa ser reavaliada'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT CONCAT(s.nome,'|',IFNULL(i.data_conclusao,'NULL')) FROM pagamentos.inspecoes i JOIN pagamentos.status_inspecao s ON s.id=i.status_id WHERE i.documento_id=9008;" | grep '^Inspeção andamento|NULL$'
 
-          # Toda reversão efetiva deixa trilha na auditoria.
-          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.auditoria WHERE acao IN ('DESFAZER_PAGAMENTO','DESFAZER_CMDF','DESFAZER_LIQUIDACAO','DESFAZER_PROGRAMACAO','DESFAZER_CONCLUSAO') AND id NOT BETWEEN 9000 AND 9999;" | grep -E '^[5-9][0-9]*$'
+          # Os seeds não contêm ações DESFAZER_*, então a contagem é inequívoca independentemente do AUTO_INCREMENT.
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.auditoria WHERE acao IN ('DESFAZER_PAGAMENTO','DESFAZER_CMDF','DESFAZER_LIQUIDACAO','DESFAZER_PROGRAMACAO','DESFAZER_CONCLUSAO');" | grep '^6$'
 
       - name: Verificar erros PHP
         if: always()
