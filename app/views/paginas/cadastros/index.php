@@ -6,7 +6,7 @@ $novoPorRota=[
   '/fornecedores'=>['/fornecedores/novo','Novo fornecedor'],
   '/fontes-recurso'=>['/fontes-recurso/nova','Nova fonte de recurso'],
   '/naturezas-despesa'=>['/naturezas-despesa/nova','Nova natureza da despesa'],
-  '/tipos-recurso'=>['/tipos-recurso/novo','Novo tipo de recurso'],
+  '/origens-recurso'=>['/origens-recurso/nova','Nova origem do recurso'],
   '/tipos-documento'=>['/tipos-documento/novo','Novo tipo de documento'],
   '/tipos-obrigacao'=>['/tipos-obrigacao/novo','Novo tipo de obrigação'],
 ];
