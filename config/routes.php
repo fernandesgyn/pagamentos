@@ -11,11 +11,13 @@ return [
  ['GET','/obrigacoes','HomeController','obrigacoes'],
  ['GET','/obrigacoes/nova','HomeController','novaObrigacao'],
  ['POST','/obrigacoes','HomeController','salvarObrigacao'],
+ ['POST','/obrigacoes/{id}/excluir','HomeController','excluirObrigacao'],
 
  ['GET','/documentos','HomeController','documentos'],
  ['GET','/documentos/novo','HomeController','novoDocumento'],
  ['POST','/documentos','HomeController','salvarDocumento'],
  ['GET','/documentos/{id}','HomeController','documento'],
+ ['POST','/documentos/{id}/excluir','HomeController','excluirDocumento'],
 
  ['GET','/inspecoes','FilaController','inspecoes'],
  ['GET','/inspecoes/{documentoId}','FilaController','inspecao'],
