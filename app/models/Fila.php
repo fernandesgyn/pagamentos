@@ -28,7 +28,7 @@ final class Fila
     public function liquidacoes():array
     {
         return $this->db->query("SELECT d.id documento_id,d.numero documento_numero,td.nome tipo_documento,f.razao_social fornecedor,
-            p.id parcela_id,p.numero_parcela,p.valor_liquido,p.numero_empenho,p.tipo,p.data_vencimento,p.ipof,p.ap_benner,p.sequencial,p.grupo_despesa,
+            p.id parcela_id,p.numero_parcela,p.valor_liquido,p.numero_empenho,p.tipo,p.data_vencimento,p.exercicio_orcamentario,p.ipof,p.ap_benner,p.sequencial,p.grupo_despesa,
             nd.codigo natureza_codigo,fr.codigo fonte_codigo,ori.codigo origem_codigo,l.status,l.data_liquidacao,g.id cmdf_grupo_id,g.status status_cmdf
           FROM liquidacoes l JOIN parcelas_pagamento p ON p.id=l.parcela_id JOIN documentos_pagamento d ON d.id=p.documento_id
           JOIN tipos_documento_pagamento td ON td.id=d.tipo_documento_id JOIN obrigacoes o ON o.id=d.obrigacao_id JOIN fornecedores f ON f.id=o.fornecedor_id
