@@ -58,6 +58,35 @@ jobs:
           for campo in origem_recurso_id data_vencimento ipof ap_benner sequencial grupo_despesa historico_parcela; do grep -q "name=\"$campo\"" app/views/paginas/programacao_form.php; done
           grep -q 'Origem do Recurso' app/views/paginas/programacao_form.php
 
+      - name: Validar ações nas DataTables
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsS -b /tmp/cookies http://127.0.0.1:8080/inspecoes >/tmp/acoes-inspecoes.html
+          grep -q 'Desfazer conclusão' /tmp/acoes-inspecoes.html
+          grep -q 'data-reversao-modal' /tmp/acoes-inspecoes.html
+
+          curl -fsS -b /tmp/cookies http://127.0.0.1:8080/programacao >/tmp/acoes-programacao.html
+          grep -Eq 'Corrigir parcelas|Desfazer programação' /tmp/acoes-programacao.html
+          curl -fsS -b /tmp/cookies http://127.0.0.1:8080/programacao/9001 >/tmp/acoes-programacao-parcelas.html
+          grep -q 'data-admin-table' /tmp/acoes-programacao-parcelas.html
+          grep -Eq 'Desfazer programação|Abrir CMDF|Abrir Liquidação' /tmp/acoes-programacao-parcelas.html
+
+          curl -fsS -b /tmp/cookies http://127.0.0.1:8080/liquidacoes >/tmp/acoes-liquidacoes.html
+          grep -q 'Desfazer liquidação' /tmp/acoes-liquidacoes.html
+
+          curl -fsS -b /tmp/cookies http://127.0.0.1:8080/cmdf >/tmp/acoes-cmdf.html
+          grep -q 'Adicionar/Remover parcelas' /tmp/acoes-cmdf.html
+          grep -q '>Atender<' /tmp/acoes-cmdf.html
+          grep -q 'Ver pagamentos' /tmp/acoes-cmdf.html
+          grep -q 'Desfazer liberação' /tmp/acoes-cmdf.html
+          grep -q 'Desfazer atendimento' /tmp/acoes-cmdf.html
+
+          curl -fsS -b /tmp/cookies 'http://127.0.0.1:8080/pagamentos?cmdf_grupo_id=9001' >/tmp/acoes-pagamentos.html
+          grep -q 'value="#9001" selected' /tmp/acoes-pagamentos.html
+          grep -q 'Desfazer pagamento' /tmp/acoes-pagamentos.html
+          grep -q 'data-reversao-modal' /tmp/acoes-pagamentos.html
+
       - name: Testar agrupamento CMDF automático, ajuste e status
         shell: bash
         env: {MYSQL_PWD: root}
