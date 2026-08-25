@@ -106,6 +106,63 @@ final class FluxoReversao
         }catch(Throwable $e){if($this->db->inTransaction())$this->db->rollBack();throw $e;}
     }
 
+    public function excluirDocumento(int $documentoId, ?string $motivo = null): void
+    {
+        $motivo=$this->validarMotivo($motivo);$this->db->beginTransaction();
+        try{
+            $q=$this->db->prepare("SELECT d.*,td.nome tipo_documento,o.numero obrigacao_numero,o.ano obrigacao_ano,f.razao_social fornecedor,
+                i.id inspecao_id,s.nome status_inspecao,s.encerra_inspecao
+              FROM documentos_pagamento d
+              JOIN tipos_documento_pagamento td ON td.id=d.tipo_documento_id
+              JOIN obrigacoes o ON o.id=d.obrigacao_id
+              JOIN fornecedores f ON f.id=o.fornecedor_id
+              LEFT JOIN inspecoes i ON i.documento_id=d.id
+              LEFT JOIN status_inspecao s ON s.id=i.status_id
+              WHERE d.id=? FOR UPDATE");
+            $q->execute([$documentoId]);$doc=$q->fetch();
+            if(!$doc)throw new RuntimeException('Documento não encontrado.');
+
+            $parcelas=$this->db->prepare("SELECT COUNT(*) FROM parcelas_pagamento WHERE documento_id=?");
+            $parcelas->execute([$documentoId]);
+            if((int)$parcelas->fetchColumn()>0)throw new RuntimeException('Existem parcelas programadas. Desfaça a Programação antes de excluir o Documento.');
+            if((int)($doc['encerra_inspecao']??0)===1)throw new RuntimeException('A Inspeção deste Documento está encerrada. Desfaça a conclusão da Inspeção antes de excluir o Documento.');
+
+            $historico=0;
+            if(!empty($doc['inspecao_id'])){
+                $h=$this->db->prepare("SELECT COUNT(*) FROM inspecao_historico WHERE inspecao_id=?");$h->execute([(int)$doc['inspecao_id']]);$historico=(int)$h->fetchColumn();
+            }
+            $antes=$doc;$antes['inspecao_historico_total']=$historico;
+            $this->auditar('documentos_pagamento',$documentoId,'EXCLUIR_DOCUMENTO',$antes,['excluido'=>true,'motivo'=>$motivo]);
+            $del=$this->db->prepare("DELETE FROM documentos_pagamento WHERE id=?");$del->execute([$documentoId]);
+            if($del->rowCount()!==1)throw new RuntimeException('Não foi possível excluir o Documento.');
+            $this->db->commit();
+        }catch(Throwable $e){if($this->db->inTransaction())$this->db->rollBack();throw $e;}
+    }
+
+    public function excluirObrigacao(int $obrigacaoId, ?string $motivo = null): void
+    {
+        $motivo=$this->validarMotivo($motivo);$this->db->beginTransaction();
+        try{
+            $q=$this->db->prepare("SELECT o.*,t.nome tipo,f.razao_social fornecedor FROM obrigacoes o
+              JOIN tipos_obrigacao t ON t.id=o.tipo_obrigacao_id JOIN fornecedores f ON f.id=o.fornecedor_id
+              WHERE o.id=? FOR UPDATE");
+            $q->execute([$obrigacaoId]);$obrigacao=$q->fetch();
+            if(!$obrigacao)throw new RuntimeException('Obrigação não encontrada.');
+            $docs=$this->db->prepare("SELECT COUNT(*) FROM documentos_pagamento WHERE obrigacao_id=?");$docs->execute([$obrigacaoId]);
+            if((int)$docs->fetchColumn()>0)throw new RuntimeException('Existem Documentos vinculados. Exclua os Documentos antes de excluir a Obrigação.');
+
+            $fontes=$this->db->prepare("SELECT fonte_recurso_id FROM obrigacao_fontes_recurso WHERE obrigacao_id=? ORDER BY fonte_recurso_id");$fontes->execute([$obrigacaoId]);
+            $naturezas=$this->db->prepare("SELECT natureza_despesa_id FROM obrigacao_naturezas_despesa WHERE obrigacao_id=? ORDER BY natureza_despesa_id");$naturezas->execute([$obrigacaoId]);
+            $antes=$obrigacao;
+            $antes['fontes_recurso_ids']=array_map('intval',$fontes->fetchAll(PDO::FETCH_COLUMN));
+            $antes['naturezas_despesa_ids']=array_map('intval',$naturezas->fetchAll(PDO::FETCH_COLUMN));
+            $this->auditar('obrigacoes',$obrigacaoId,'EXCLUIR_OBRIGACAO',$antes,['excluido'=>true,'motivo'=>$motivo]);
+            $del=$this->db->prepare("DELETE FROM obrigacoes WHERE id=?");$del->execute([$obrigacaoId]);
+            if($del->rowCount()!==1)throw new RuntimeException('Não foi possível excluir a Obrigação.');
+            $this->db->commit();
+        }catch(Throwable $e){if($this->db->inTransaction())$this->db->rollBack();throw $e;}
+    }
+
     private function renumerarAposExclusao(int $documentoId,int $numeroRemovido):void
     {
         $st=$this->db->prepare("SELECT id,numero_parcela FROM parcelas_pagamento WHERE documento_id=? AND numero_parcela>? ORDER BY numero_parcela ASC,id ASC FOR UPDATE");

@@ -36,6 +36,14 @@ final class HomeController
             redirect('/obrigacoes/nova');
         }
     }
+    public function excluirObrigacao(string $id):void{
+        Auth::requirePermission('obrigacao.gerir');
+        try{
+            (new FluxoReversao())->excluirObrigacao((int)$id,$_POST['motivo']??null);
+            $_SESSION['flash']=['success','Obrigação excluída.'];
+        }catch(Throwable $e){$_SESSION['flash']=['danger',$e->getMessage()];}
+        redirect('/obrigacoes');
+    }
 
     public function documentos():void{
         Auth::requirePermission('documento.gerir');
@@ -61,6 +69,14 @@ final class HomeController
             $_SESSION['flash']=['danger',$e->getMessage()];
             redirect('/documentos/novo');
         }
+    }
+    public function excluirDocumento(string $id):void{
+        Auth::requirePermission('documento.gerir');
+        try{
+            (new FluxoReversao())->excluirDocumento((int)$id,$_POST['motivo']??null);
+            $_SESSION['flash']=['success','Documento excluído.'];
+        }catch(Throwable $e){$_SESSION['flash']=['danger',$e->getMessage()];}
+        redirect('/documentos');
     }
     public function documento(string $id):void{
         Auth::requirePermission('dashboard.ver');

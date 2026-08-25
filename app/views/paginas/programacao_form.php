@@ -53,30 +53,39 @@ $tableId='programacao-parcelas-table';
 $tablePageSize=10;
 $tableFilters=[
  ['label'=>'Pesquisar parcelas','column'=>'*','type'=>'search','placeholder'=>'Empenho, natureza, IPOF ou AP Benner','class'=>'col-12 col-lg-5'],
- ['label'=>'Liquidação','column'=>13,'type'=>'select','populate'=>true,'empty'=>'Todas','class'=>'col-12 col-md-4 col-lg-2'],
 ];
 ?>
 <div class="card" data-admin-table data-page-size="<?=$tablePageSize?>">
   <div class="card-header"><h3 class="card-title">Parcelas programadas</h3></div>
   <?php require BASE_PATH.'/app/views/components/admin_table_filters.php';?>
   <div class="card-body p-0"><div class="table-responsive"><table class="table table-hover table-striped mb-0 align-middle">
-    <thead><tr><th>Parcela</th><th>Empenho</th><th>Natureza</th><th>Exercício</th><th>Fonte</th><th>Origem</th><th>Valor</th><th>Tipo</th><th>Vencimento</th><th>IPOF</th><th>AP Benner</th><th>Seq.</th><th>Grupo</th><th>Liquidação</th><th class="text-end portal-actions-cell" data-table-nosort>Ações</th></tr></thead>
+    <thead><tr><th>Parcela</th><th>Empenho</th><th>Natureza</th><th>Fonte / Origem</th><th>Valor</th><th>Vencimento</th><th class="text-end portal-actions-cell" data-table-nosort>Ações</th></tr></thead>
     <tbody>
       <?php foreach($parcelas as $p):
         $podeDesfazer=((string)($p['status_liquidacao']??'AGUARDANDO')==='AGUARDANDO'&&empty($p['cmdf_grupo_id'])&&empty($p['status_pagamento']));
       ?><tr data-record-id="<?=e($p['id'])?>">
-        <td><strong><?=e($p['numero_parcela'])?></strong></td><td><?=e($p['numero_empenho'])?></td><td><?=e($p['natureza_codigo'])?></td><td><?=e($p['exercicio_orcamentario'])?></td><td><?=e($p['fonte_codigo'])?></td><td><?=e($p['origem_codigo'])?></td><td><?=money($p['valor_liquido'])?></td><td><?=e($p['tipo'])?></td><td><?=e($p['data_vencimento'])?></td><td><?=e($p['ipof'])?></td><td><?=e($p['ap_benner'])?></td><td><?=e($p['sequencial'])?></td><td><?=e($p['grupo_despesa'])?></td><td><span class="badge <?=$p['status_liquidacao']==='LIQUIDADA'?'text-bg-success':'text-bg-warning'?>"><?=e($p['status_liquidacao']??'AGUARDANDO')?></span></td>
-        <td class="text-end portal-actions-cell">
-          <div class="portal-action-group portal-table-actions justify-content-end">
-            <?php if($podeDesfazer):?>
-              <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#reversaoModal" data-reversao-modal data-reversao-action="/programacao/<?=e($doc['id'])?>/parcelas/<?=e($p['id'])?>/desfazer" data-reversao-titulo="Desfazer Programação da parcela <?=e($p['numero_parcela'])?>" data-reversao-texto="Esta parcela será removida da Programação, o saldo do documento será reaberto e as parcelas posteriores serão renumeradas." data-reversao-botao="Desfazer programação"><i class="fa-solid fa-rotate-left me-1"></i>Desfazer programação</button>
-            <?php elseif(!empty($p['status_pagamento'])):?><button type="button" class="btn btn-sm btn-outline-secondary" disabled title="Desfaça o Pagamento primeiro"><i class="fa-solid fa-lock me-1"></i>Desfazer programação</button>
-            <?php elseif(!empty($p['cmdf_grupo_id'])):?><a href="/cmdf/grupos/<?=e($p['cmdf_grupo_id'])?>" class="btn btn-sm btn-outline-secondary" title="Desfaça a CMDF e remova a parcela do grupo primeiro"><i class="fa-solid fa-layer-group me-1"></i>Abrir CMDF</a>
-            <?php else:?><a href="/liquidacoes/<?=e($p['id'])?>" class="btn btn-sm btn-outline-secondary" title="Desfaça a Liquidação primeiro"><i class="fa-solid fa-check-double me-1"></i>Abrir Liquidação</a><?php endif;?>
-          </div>
+        <td><strong><?=e($p['numero_parcela'])?></strong>
+          <details class="small mt-1"><summary class="text-primary">Detalhes</summary><div class="pt-1 text-body-secondary">
+            Exercício: <?=e($p['exercicio_orcamentario'])?> · Tipo: <?=e($p['tipo'])?><br>
+            IPOF: <?=e($p['ipof'])?> · AP Benner: <?=e($p['ap_benner'])?><br>
+            Sequencial: <?=e($p['sequencial'])?> · Grupo: <?=e($p['grupo_despesa'])?><br>
+            Histórico: <?=e($p['historico_parcela'])?><?php if(!empty($p['justificativa_ordem_cronologica'])):?><br>Justificativa: <?=e($p['justificativa_ordem_cronologica'])?><?php endif;?>
+          </div></details>
         </td>
+        <td><?=e($p['numero_empenho'])?></td>
+        <td><?=e($p['natureza_codigo'])?></td>
+        <td><strong><?=e($p['fonte_codigo'])?></strong><div class="small text-body-secondary"><?=e($p['origem_codigo'])?></div></td>
+        <td><?=money($p['valor_liquido'])?></td>
+        <td><?=e($p['data_vencimento'])?></td>
+        <td class="text-end portal-actions-cell"><div class="portal-action-group portal-table-actions">
+          <?php if($podeDesfazer):?>
+            <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#reversaoModal" data-reversao-modal data-reversao-action="/programacao/<?=e($doc['id'])?>/parcelas/<?=e($p['id'])?>/desfazer" data-reversao-titulo="Desfazer Programação da parcela <?=e($p['numero_parcela'])?>" data-reversao-texto="Esta parcela será removida da Programação, o saldo do documento será reaberto e as parcelas posteriores serão renumeradas." data-reversao-botao="Desfazer programação"><i class="fa-solid fa-rotate-left me-1"></i>Desfazer</button>
+          <?php else:?>
+            <button type="button" class="btn btn-sm btn-outline-secondary" disabled title="Existe etapa posterior vinculada. Desfaça-a antes de remover esta Programação."><i class="fa-solid fa-lock me-1"></i>Desfazer</button>
+          <?php endif;?>
+        </div></td>
       </tr><?php endforeach;?>
-      <?php if(!$parcelas):?><tr data-table-empty><td colspan="15" class="text-center text-body-secondary py-4">Nenhuma parcela programada.</td></tr><?php endif;?>
+      <?php if(!$parcelas):?><tr data-table-empty><td colspan="7" class="text-center text-body-secondary py-4">Nenhuma parcela programada.</td></tr><?php endif;?>
     </tbody>
   </table></div></div>
   <?php require BASE_PATH.'/app/views/components/admin_table_footer.php';?>

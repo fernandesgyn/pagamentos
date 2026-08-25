@@ -175,4 +175,24 @@ document.addEventListener('DOMContentLoaded', function () {
       });
     });
   }
+
+  var pagamentoModal = document.getElementById('pagamentoModal');
+  if (pagamentoModal) {
+    var pagamentoForm = pagamentoModal.querySelector('[data-pagamento-form]');
+    var pagamentoTitulo = pagamentoModal.querySelector('[data-pagamento-titulo]');
+    var pagamentoTexto = pagamentoModal.querySelector('[data-pagamento-texto]');
+    var pagamentoValor = pagamentoModal.querySelector('input[name="valor_liquido_pago"]');
+    var pagamentoHistorico = pagamentoModal.querySelector('input[name="historico_pagamento"]');
+
+    document.querySelectorAll('[data-pagamento-modal]').forEach(function (button) {
+      button.addEventListener('click', function () {
+        if (!pagamentoForm) return;
+        pagamentoForm.action = button.dataset.pagamentoAction || '';
+        if (pagamentoTitulo) pagamentoTitulo.textContent = button.dataset.pagamentoTitulo || 'Registrar pagamento';
+        if (pagamentoTexto) pagamentoTexto.textContent = button.dataset.pagamentoTexto || '';
+        if (pagamentoValor) pagamentoValor.value = button.dataset.pagamentoValor || '';
+        if (pagamentoHistorico) pagamentoHistorico.value = '';
+      });
+    });
+  }
 });

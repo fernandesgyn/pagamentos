@@ -27,6 +27,7 @@ jobs:
         env: {MYSQL_PWD: root}
         run: |
           find app config public scripts -name '*.php' -print0 | xargs -0 -n1 php -l
+          test ! -d database/migrations
           mysql -h 127.0.0.1 -uroot -e "DROP DATABASE IF EXISTS pagamentos;"
           mysql -h 127.0.0.1 -uroot < database/schema.sql
           mysql -h 127.0.0.1 -uroot pagamentos < database/seeds/001_cadastros_teste.sql
@@ -58,34 +59,64 @@ jobs:
           for campo in origem_recurso_id data_vencimento ipof ap_benner sequencial grupo_despesa historico_parcela; do grep -q "name=\"$campo\"" app/views/paginas/programacao_form.php; done
           grep -q 'Origem do Recurso' app/views/paginas/programacao_form.php
 
-      - name: Validar ações nas DataTables
+      - name: Validar ações e tabelas enxutas
         shell: bash
         run: |
           set -euo pipefail
+
+          curl -fsS -b /tmp/cookies http://127.0.0.1:8080/obrigacoes >/tmp/acoes-obrigacoes.html
+          grep -q '/obrigacoes/9001/excluir' /tmp/acoes-obrigacoes.html
+          grep -q 'data-reversao-modal' /tmp/acoes-obrigacoes.html
+          ! grep -q '<th>Fontes de recurso</th>' /tmp/acoes-obrigacoes.html
+          ! grep -q '<th>Naturezas da despesa</th>' /tmp/acoes-obrigacoes.html
+
+          curl -fsS -b /tmp/cookies http://127.0.0.1:8080/documentos >/tmp/acoes-documentos.html
+          grep -q '/documentos/9001/excluir' /tmp/acoes-documentos.html
+          ! grep -q '<th>Inspeção</th>' /tmp/acoes-documentos.html
+
           curl -fsS -b /tmp/cookies http://127.0.0.1:8080/inspecoes >/tmp/acoes-inspecoes.html
-          grep -q 'Desfazer conclusão' /tmp/acoes-inspecoes.html
           grep -q 'data-reversao-modal' /tmp/acoes-inspecoes.html
+          grep -q '>Desfazer<' /tmp/acoes-inspecoes.html
+          ! grep -q '<th>Obrigação</th>' /tmp/acoes-inspecoes.html
 
           curl -fsS -b /tmp/cookies http://127.0.0.1:8080/programacao >/tmp/acoes-programacao.html
-          grep -Eq 'Corrigir parcelas|Desfazer programação' /tmp/acoes-programacao.html
+          grep -Eq 'Corrigir parcelas|>Desfazer<' /tmp/acoes-programacao.html
           curl -fsS -b /tmp/cookies http://127.0.0.1:8080/programacao/9001 >/tmp/acoes-programacao-parcelas.html
-          grep -q 'data-admin-table' /tmp/acoes-programacao-parcelas.html
-          grep -Eq 'Desfazer programação|Abrir CMDF|Abrir Liquidação' /tmp/acoes-programacao-parcelas.html
+          grep -q 'programacao-parcelas-table' /tmp/acoes-programacao-parcelas.html
+          grep -q '>Detalhes<' /tmp/acoes-programacao-parcelas.html
+          ! grep -q '<th>Liquidação</th>' /tmp/acoes-programacao-parcelas.html
+          ! grep -q 'Abrir CMDF' /tmp/acoes-programacao-parcelas.html
+          ! grep -q 'Abrir Liquidação' /tmp/acoes-programacao-parcelas.html
 
           curl -fsS -b /tmp/cookies http://127.0.0.1:8080/liquidacoes >/tmp/acoes-liquidacoes.html
-          grep -q 'Desfazer liquidação' /tmp/acoes-liquidacoes.html
+          grep -q '>Desfazer<' /tmp/acoes-liquidacoes.html
+          ! grep -q '<th>CMDF</th>' /tmp/acoes-liquidacoes.html
+          ! grep -q '<th>IPOF</th>' /tmp/acoes-liquidacoes.html
+          ! grep -q '<th>AP Benner</th>' /tmp/acoes-liquidacoes.html
 
           curl -fsS -b /tmp/cookies http://127.0.0.1:8080/cmdf >/tmp/acoes-cmdf.html
-          grep -q 'Adicionar/Remover parcelas' /tmp/acoes-cmdf.html
+          grep -q '>Parcelas<' /tmp/acoes-cmdf.html
           grep -q '>Atender<' /tmp/acoes-cmdf.html
-          grep -q 'Ver pagamentos' /tmp/acoes-cmdf.html
-          grep -q 'Desfazer liberação' /tmp/acoes-cmdf.html
-          grep -q 'Desfazer atendimento' /tmp/acoes-cmdf.html
+          grep -q '>Pagamentos<' /tmp/acoes-cmdf.html
+          grep -q '>Desfazer<' /tmp/acoes-cmdf.html
+          grep -q '<th>Recursos</th>' /tmp/acoes-cmdf.html
+          ! grep -q '<th>Criação</th>' /tmp/acoes-cmdf.html
 
-          curl -fsS -b /tmp/cookies 'http://127.0.0.1:8080/pagamentos?cmdf_grupo_id=9001' >/tmp/acoes-pagamentos.html
-          grep -q 'value="#9001" selected' /tmp/acoes-pagamentos.html
-          grep -q 'Desfazer pagamento' /tmp/acoes-pagamentos.html
-          grep -q 'data-reversao-modal' /tmp/acoes-pagamentos.html
+          curl -fsS -b /tmp/cookies http://127.0.0.1:8080/cmdf/grupos/9001 >/tmp/cmdf-grupo.html
+          ! grep -q '<th>Pagamento</th>' /tmp/cmdf-grupo.html
+
+          curl -fsS -b /tmp/cookies 'http://127.0.0.1:8080/pagamentos?cmdf_grupo_id=9001' >/tmp/acoes-pagamentos-grupo.html
+          grep -q 'Exibindo pagamentos do grupo CMDF' /tmp/acoes-pagamentos-grupo.html
+          grep -q 'Desfazer' /tmp/acoes-pagamentos-grupo.html
+          curl -fsS -b /tmp/cookies http://127.0.0.1:8080/pagamentos >/tmp/acoes-pagamentos.html
+          grep -q 'id="pagamentoModal"' /tmp/acoes-pagamentos.html
+          grep -q 'data-pagamento-modal' /tmp/acoes-pagamentos.html
+          ! grep -q '<th>IPOF</th>' /tmp/acoes-pagamentos.html
+          ! grep -q '<th>AP Benner</th>' /tmp/acoes-pagamentos.html
+          ! grep -q '<th>Grupo CMDF</th>' /tmp/acoes-pagamentos.html
+
+          grep -q 'flex-wrap:wrap!important' public/assets/css/admin-table.css
+          ! grep -q 'flex-wrap:nowrap!important' public/assets/css/admin-table.css
 
       - name: Testar agrupamento CMDF automático, ajuste e status
         shell: bash
@@ -94,24 +125,20 @@ jobs:
           set -euo pipefail
           csrf(){ curl -fsS -b /tmp/cookies "$1" | sed -n 's/.*name="_token" value="\([^"]*\)".*/\1/p' | head -1; }
 
-          # Remove a parcela 9005 do grupo Fechada para exercitar edição e tornar a parcela elegível novamente.
           TOKEN=$(csrf http://127.0.0.1:8080/cmdf/grupos/9003)
           curl -fsS -b /tmp/cookies -c /tmp/cookies -o /dev/null --data-urlencode "_token=$TOKEN" http://127.0.0.1:8080/cmdf/grupos/9003/parcelas/9005/remover
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.cmdf_grupos WHERE id=9003;" | grep '^0$'
 
-          # Incompatíveis não podem formar grupo manual.
           TOKEN=$(csrf http://127.0.0.1:8080/cmdf)
           curl -fsS -b /tmp/cookies -c /tmp/cookies -o /dev/null --data-urlencode "_token=$TOKEN" --data-urlencode 'parcelas_ids[]=9005' --data-urlencode 'parcelas_ids[]=9006' http://127.0.0.1:8080/cmdf/grupos
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.cmdf_grupo_parcelas a JOIN pagamentos.cmdf_grupo_parcelas b ON a.grupo_id=b.grupo_id WHERE a.parcela_id=9005 AND b.parcela_id=9006;" | grep '^0$'
 
-          # Inteligência cria grupos pelas regras de compatibilidade.
           TOKEN=$(csrf http://127.0.0.1:8080/cmdf)
           curl -fsS -b /tmp/cookies -c /tmp/cookies -o /dev/null --data-urlencode "_token=$TOKEN" http://127.0.0.1:8080/cmdf/grupos/sugerir
           GRUPO=$(mysql -h 127.0.0.1 -uroot -N -s -e "SELECT grupo_id FROM pagamentos.cmdf_grupo_parcelas WHERE parcela_id=9006;")
           test -n "$GRUPO"
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.cmdf_grupo_parcelas WHERE grupo_id=$GRUPO AND parcela_id IN (9006,9007);" | grep '^2$'
 
-          # Usuário autorizado remove e recoloca parcela enquanto Fechada.
           TOKEN=$(csrf http://127.0.0.1:8080/cmdf/grupos/$GRUPO)
           curl -fsS -b /tmp/cookies -c /tmp/cookies -o /dev/null --data-urlencode "_token=$TOKEN" http://127.0.0.1:8080/cmdf/grupos/$GRUPO/parcelas/9007/remover
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.cmdf_grupo_parcelas WHERE grupo_id=$GRUPO;" | grep '^1$'
@@ -119,22 +146,21 @@ jobs:
           curl -fsS -b /tmp/cookies -c /tmp/cookies -o /dev/null --data-urlencode "_token=$TOKEN" --data-urlencode 'parcelas_ids[]=9007' http://127.0.0.1:8080/cmdf/grupos/$GRUPO/parcelas
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.cmdf_grupo_parcelas WHERE grupo_id=$GRUPO;" | grep '^2$'
 
-          # Fechada -> Liberada não cria pagamentos.
           TOKEN=$(csrf http://127.0.0.1:8080/cmdf/grupos/$GRUPO)
           curl -fsS -b /tmp/cookies -c /tmp/cookies -o /dev/null --data-urlencode "_token=$TOKEN" --data-urlencode 'status=LIBERADA' http://127.0.0.1:8080/cmdf/grupos/$GRUPO/status
           mysql -h 127.0.0.1 -uroot -N -e "SELECT status FROM pagamentos.cmdf_grupos WHERE id=$GRUPO;" | grep '^LIBERADA$'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.pagamentos WHERE parcela_id IN (9006,9007);" | grep '^0$'
 
-          # Liberada -> Atendida cria um pagamento AGUARDANDO por parcela.
           TOKEN=$(csrf http://127.0.0.1:8080/cmdf/grupos/$GRUPO)
           curl -fsS -b /tmp/cookies -c /tmp/cookies -o /dev/null --data-urlencode "_token=$TOKEN" --data-urlencode 'status=ATENDIDA' http://127.0.0.1:8080/cmdf/grupos/$GRUPO/status
           mysql -h 127.0.0.1 -uroot -N -e "SELECT status FROM pagamentos.cmdf_grupos WHERE id=$GRUPO;" | grep '^ATENDIDA$'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.pagamentos WHERE parcela_id IN (9006,9007) AND status='AGUARDANDO';" | grep '^2$'
 
-      - name: Verificar pagamento usa AP Benner da parcela
+      - name: Verificar modal de pagamento
         run: |
           curl -fsS -b /tmp/cookies http://127.0.0.1:8080/pagamentos >/tmp/pagamentos.html
-          grep -q '0000005006' /tmp/pagamentos.html
+          grep -q 'name="valor_liquido_pago"' /tmp/pagamentos.html
+          grep -q 'name="historico_pagamento"' /tmp/pagamentos.html
           ! grep -q 'name="benner_ap"' /tmp/pagamentos.html
 
       - name: Verificar log PHP
