@@ -32,7 +32,7 @@ final class PagamentoController
     public function desfazer(string $documentoId,string $parcelaId): void
     {
         try {
-            $this->reversao->desfazerPagamento((int)$parcelaId,$_POST['motivo'] ?? null);
+            $this->reversao->desfazerPagamento((int)$documentoId,(int)$parcelaId,$_POST['motivo'] ?? null);
             $_SESSION['flash']=['success','Pagamento desfeito. A parcela voltou para Aguardando pagamento.'];
         } catch (Throwable $e) {
             $_SESSION['flash']=['danger',$e->getMessage()];
