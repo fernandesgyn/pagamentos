@@ -35,6 +35,11 @@ final class FilaController
     {
         Auth::requirePermission('inspecao.gerir');
         try {
+            $atual = $this->fluxo->documento((int)$documentoId);
+            if (!$atual) throw new RuntimeException('Documento não encontrado.');
+            if (!empty($atual['data_conclusao'])) {
+                throw new RuntimeException('A Inspeção já está encerrada. Use “Reabrir Inspeção” para voltar ao fluxo anterior de forma auditada.');
+            }
             $this->fluxo->atualizarInspecao((int)$documentoId,$_POST);
             $doc = $this->fluxo->documento((int)$documentoId);
             if ($doc && (bool)$doc['permite_avancar']) {
@@ -104,8 +109,7 @@ final class FilaController
     {
         Auth::requirePermission('parcela.gerir');
         try {
-            $docReal = $this->reversao->desfazerProgramacao((int)$parcelaId,$_POST['motivo'] ?? null);
-            if ($docReal !== (int)$documentoId) throw new RuntimeException('Parcela não pertence ao documento informado.');
+            $this->reversao->desfazerProgramacao((int)$documentoId,(int)$parcelaId,$_POST['motivo'] ?? null);
             $_SESSION['flash']=['success','Programação da parcela desfeita. O saldo do documento foi reaberto para correção.'];
         } catch (Throwable $e) {
             $_SESSION['flash']=['danger',$e->getMessage()];
@@ -131,6 +135,11 @@ final class FilaController
     {
         Auth::requirePermission('liquidacao.gerir');
         try {
+            $atual = $this->fluxo->parcela((int)$parcelaId);
+            if (!$atual) throw new RuntimeException('Parcela não encontrada.');
+            if ((string)($atual['status_liquidacao'] ?? 'AGUARDANDO') !== 'AGUARDANDO') {
+                throw new RuntimeException('A Liquidação já foi movimentada. Use “Desfazer Liquidação” antes de registrar uma nova situação.');
+            }
             $this->fluxo->atualizarLiquidacao((int)$parcelaId,$_POST);
             $_SESSION['flash']=['success','Liquidação atualizada.'];
         } catch (Throwable $e) {
