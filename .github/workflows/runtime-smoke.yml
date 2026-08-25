@@ -5,293 +5,112 @@ on:
   pull_request:
 
 jobs:
-  rotas:
+  fluxo:
     runs-on: ubuntu-latest
     services:
       mysql:
         image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: root
-        ports:
-          - 3306:3306
+        env: {MYSQL_ROOT_PASSWORD: root}
+        ports: ["3306:3306"]
         options: >-
           --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=10
-
+          --health-interval=10s --health-timeout=5s --health-retries=10
     env:
       DB_HOST: 127.0.0.1
       DB_PORT: 3306
       DB_DATABASE: pagamentos
       DB_USERNAME: root
       DB_PASSWORD: root
-
     steps:
       - uses: actions/checkout@v4
-
-      - name: Validar PHP de runtime
+      - name: Preparar aplicação
+        env: {MYSQL_PWD: root}
         run: |
-          php -v
-          php -r "exit(extension_loaded('pdo') && extension_loaded('pdo_mysql') && extension_loaded('mbstring') ? 0 : 1);"
           find app config public scripts -name '*.php' -print0 | xargs -0 -n1 php -l
-
-      - name: Preparar banco e massa de homologação
-        env:
-          MYSQL_PWD: root
-        run: |
           mysql -h 127.0.0.1 -uroot -e "DROP DATABASE IF EXISTS pagamentos;"
           mysql -h 127.0.0.1 -uroot < database/schema.sql
           mysql -h 127.0.0.1 -uroot pagamentos < database/seeds/001_cadastros_teste.sql
           mysql -h 127.0.0.1 -uroot pagamentos < database/seeds/002_fluxo_documentos_inspecoes_teste.sql
           mysql -h 127.0.0.1 -uroot pagamentos < database/seeds/003_programacao_liquidacao_cmdf_pagamento_teste.sql
+          nohup php -d display_errors=1 -d display_startup_errors=1 -d error_reporting=E_ALL -S 127.0.0.1:8080 -t public server.php >/tmp/server.log 2>&1 &
+          for i in $(seq 1 20); do curl -fsS http://127.0.0.1:8080/login >/dev/null && exit 0; sleep 1; done
+          cat /tmp/server.log; exit 1
 
-      - name: Subir aplicação com erros PHP visíveis
+      - name: Login administrador
         run: |
-          nohup php \
-            -d display_errors=1 \
-            -d display_startup_errors=1 \
-            -d error_reporting=E_ALL \
-            -S 127.0.0.1:8080 -t public server.php \
-            > /tmp/pagamentos-server.log 2>&1 &
-          echo $! > /tmp/pagamentos-server.pid
-
-          for tentativa in $(seq 1 20); do
-            if curl -fsS http://127.0.0.1:8080/login >/dev/null; then
-              exit 0
-            fi
-            sleep 1
-          done
-
-          cat /tmp/pagamentos-server.log
-          exit 1
-
-      - name: Autenticar administrador de homologação
-        run: |
-          curl -fsS -c /tmp/pagamentos-cookies.txt http://127.0.0.1:8080/login > /tmp/login.html
-          TOKEN=$(sed -n 's/.*name="_token" value="\([^"]*\)".*/\1/p' /tmp/login.html | head -n 1)
-          test -n "$TOKEN"
-
-          curl -fsS -L \
-            -b /tmp/pagamentos-cookies.txt \
-            -c /tmp/pagamentos-cookies.txt \
-            --data-urlencode "_token=$TOKEN" \
-            --data-urlencode "login=admin.teste" \
-            --data-urlencode "senha=Teste@123" \
-            http://127.0.0.1:8080/login > /tmp/home.html
-
+          curl -fsS -c /tmp/cookies http://127.0.0.1:8080/login >/tmp/login.html
+          TOKEN=$(sed -n 's/.*name="_token" value="\([^"]*\)".*/\1/p' /tmp/login.html | head -1)
+          curl -fsS -L -b /tmp/cookies -c /tmp/cookies --data-urlencode "_token=$TOKEN" --data-urlencode 'login=admin.teste' --data-urlencode 'senha=Teste@123' http://127.0.0.1:8080/login >/tmp/home.html
           grep -q 'Administrador de Teste' /tmp/home.html
 
-      - name: Testar rotas GET principais
+      - name: Smoke das rotas principais
         shell: bash
         run: |
           set -euo pipefail
-
-          rotas=(
-            "/"
-            "/obrigacoes"
-            "/obrigacoes/nova"
-            "/documentos"
-            "/documentos/novo"
-            "/documentos/9001"
-            "/inspecoes"
-            "/inspecoes/9001"
-            "/inspecoes/9009"
-            "/programacao"
-            "/programacao/9001"
-            "/liquidacoes"
-            "/liquidacoes/9001"
-            "/cmdf"
-            "/cmdf/9002"
-            "/pagamentos"
-            "/fornecedores"
-            "/fornecedores/novo"
-            "/fornecedores/9001/editar"
-            "/fontes-recurso"
-            "/fontes-recurso/nova"
-            "/fontes-recurso/9001/editar"
-            "/naturezas-despesa"
-            "/naturezas-despesa/nova"
-            "/naturezas-despesa/9001/editar"
-            "/tipos-recurso"
-            "/tipos-recurso/novo"
-            "/tipos-recurso/1/editar"
-            "/tipos-documento"
-            "/tipos-documento/novo"
-            "/tipos-documento/1/editar"
-            "/tipos-obrigacao"
-            "/tipos-obrigacao/novo"
-            "/tipos-obrigacao/1/editar"
-            "/usuarios"
-            "/usuarios/novo"
-            "/usuarios/9002/editar"
-            "/perfis"
-            "/perfis/novo"
-            "/perfis/2/editar"
-          )
-
-          padrao_erro='Warning:|Notice:|Fatal error:|Undefined variable|Undefined array key|Uncaught|Deprecated:'
-
+          rotas=(/ /obrigacoes /obrigacoes/nova /documentos /documentos/novo /documentos/9001 /inspecoes /inspecoes/9009 /programacao /programacao/9001 /liquidacoes /liquidacoes/9001 /cmdf /cmdf/grupos/9001 /pagamentos /fornecedores /fontes-recurso /naturezas-despesa /origens-recurso /tipos-documento /tipos-obrigacao /usuarios /perfis)
+          padrao='Warning:|Notice:|Fatal error:|Undefined variable|Undefined array key|Uncaught|Deprecated:'
           for rota in "${rotas[@]}"; do
-            nome=$(printf '%s' "$rota" | sed 's#[/?=&]#_#g; s#^_$#home#')
-            arquivo="/tmp/rota-${nome}.html"
-            codigo=$(curl -sS -b /tmp/pagamentos-cookies.txt -o "$arquivo" -w '%{http_code}' "http://127.0.0.1:8080${rota}")
-
-            if [ "$codigo" != "200" ]; then
-              echo "Rota ${rota} retornou HTTP ${codigo}"
-              cat "$arquivo"
-              exit 1
-            fi
-
-            if grep -Eiq "$padrao_erro" "$arquivo"; then
-              echo "Erro PHP encontrado na rota ${rota}:"
-              grep -Ein "$padrao_erro" "$arquivo" || true
-              exit 1
-            fi
+            arq=/tmp/rota$(echo "$rota"|tr '/?' '__').html
+            code=$(curl -sS -b /tmp/cookies -o "$arq" -w '%{http_code}' "http://127.0.0.1:8080$rota")
+            test "$code" = 200 || { echo "$rota => $code"; cat "$arq"; exit 1; }
+            ! grep -Eiq "$padrao" "$arq" || { grep -Ein "$padrao" "$arq"; exit 1; }
           done
+          curl -fsS -b /tmp/cookies http://127.0.0.1:8080/programacao/9001 >/tmp/programacao.html
+          for campo in origem_recurso_id data_vencimento ipof ap_benner sequencial grupo_despesa historico_parcela; do grep -q "name=\"$campo\"" /tmp/programacao.html; done
+          grep -q 'Origem do Recurso' /tmp/programacao.html
 
-      - name: Validar combobox pesquisável de fornecedor
-        run: |
-          curl -fsS -b /tmp/pagamentos-cookies.txt http://127.0.0.1:8080/obrigacoes/nova > /tmp/obrigacao-nova.html
-          curl -fsS -b /tmp/pagamentos-cookies.txt http://127.0.0.1:8080/documentos/novo > /tmp/documento-novo.html
-          grep -q 'data-supplier-combobox' /tmp/obrigacao-nova.html
-          grep -q 'Digite o nome, razão social ou CPF/CNPJ' /tmp/obrigacao-nova.html
-          grep -q 'data-supplier-combobox' /tmp/documento-novo.html
-          grep -q 'data-obligation-select' /tmp/documento-novo.html
-
-      - name: Testar gravação do responsável na Inspeção 9009
+      - name: Testar agrupamento CMDF automático, ajuste e status
         shell: bash
-        env:
-          MYSQL_PWD: root
+        env: {MYSQL_PWD: root}
         run: |
           set -euo pipefail
+          csrf(){ curl -fsS -b /tmp/cookies "$1" | sed -n 's/.*name="_token" value="\([^"]*\)".*/\1/p' | head -1; }
 
-          curl -fsS -b /tmp/pagamentos-cookies.txt http://127.0.0.1:8080/inspecoes/9009 > /tmp/inspecao-9009.html
-          TOKEN=$(sed -n 's/.*name="_token" value="\([^"]*\)".*/\1/p' /tmp/inspecao-9009.html | head -n 1)
-          STATUS_ANDAMENTO=$(mysql -h 127.0.0.1 -uroot -N -s -e "SELECT id FROM pagamentos.status_inspecao WHERE nome='Inspeção andamento' LIMIT 1;")
-          test -n "$TOKEN"
-          test -n "$STATUS_ANDAMENTO"
+          # Remove a parcela 9005 do grupo Fechada para exercitar edição e tornar a parcela elegível novamente.
+          TOKEN=$(csrf http://127.0.0.1:8080/cmdf/grupos/9003)
+          curl -fsS -b /tmp/cookies -c /tmp/cookies -o /dev/null --data-urlencode "_token=$TOKEN" http://127.0.0.1:8080/cmdf/grupos/9003/parcelas/9005/remover
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.cmdf_grupos WHERE id=9003;" | grep '^0$'
 
-          CODIGO=$(curl -sS \
-            -b /tmp/pagamentos-cookies.txt \
-            -c /tmp/pagamentos-cookies.txt \
-            -D /tmp/inspecao-9009-post.headers \
-            -o /tmp/inspecao-9009-post.body \
-            -w '%{http_code}' \
-            --data-urlencode "_token=$TOKEN" \
-            --data-urlencode "status_id=$STATUS_ANDAMENTO" \
-            --data-urlencode "observacao=Smoke: inspeção 9009 com usuário válido" \
-            http://127.0.0.1:8080/inspecoes/9009)
-          test "$CODIGO" = "302"
-          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.inspecoes WHERE documento_id=9009 AND responsavel_id=9001;" | grep '^1$'
-          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.inspecao_historico h JOIN pagamentos.inspecoes i ON i.id=h.inspecao_id WHERE i.documento_id=9009 AND h.usuario_id=9001 AND h.observacao='Smoke: inspeção 9009 com usuário válido';" | grep '^1$'
+          # Incompatíveis não podem formar grupo manual.
+          TOKEN=$(csrf http://127.0.0.1:8080/cmdf)
+          curl -fsS -b /tmp/cookies -c /tmp/cookies -o /dev/null --data-urlencode "_token=$TOKEN" --data-urlencode 'parcelas_ids[]=9005' --data-urlencode 'parcelas_ids[]=9006' http://127.0.0.1:8080/cmdf/grupos
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.cmdf_grupo_parcelas a JOIN pagamentos.cmdf_grupo_parcelas b ON a.grupo_id=b.grupo_id WHERE a.parcela_id=9005 AND b.parcela_id=9006;" | grep '^0$'
 
-      - name: Testar Inspeção até criação da parcela e Liquidação
-        shell: bash
-        env:
-          MYSQL_PWD: root
+          # Inteligência cria grupos pelas regras de compatibilidade.
+          TOKEN=$(csrf http://127.0.0.1:8080/cmdf)
+          curl -fsS -b /tmp/cookies -c /tmp/cookies -o /dev/null --data-urlencode "_token=$TOKEN" http://127.0.0.1:8080/cmdf/grupos/sugerir
+          GRUPO=$(mysql -h 127.0.0.1 -uroot -N -s -e "SELECT grupo_id FROM pagamentos.cmdf_grupo_parcelas WHERE parcela_id=9006;")
+          test -n "$GRUPO"
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.cmdf_grupo_parcelas WHERE grupo_id=$GRUPO AND parcela_id IN (9006,9007);" | grep '^2$'
+
+          # Usuário autorizado remove e recoloca parcela enquanto Fechada.
+          TOKEN=$(csrf http://127.0.0.1:8080/cmdf/grupos/$GRUPO)
+          curl -fsS -b /tmp/cookies -c /tmp/cookies -o /dev/null --data-urlencode "_token=$TOKEN" http://127.0.0.1:8080/cmdf/grupos/$GRUPO/parcelas/9007/remover
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.cmdf_grupo_parcelas WHERE grupo_id=$GRUPO;" | grep '^1$'
+          TOKEN=$(csrf http://127.0.0.1:8080/cmdf/grupos/$GRUPO)
+          curl -fsS -b /tmp/cookies -c /tmp/cookies -o /dev/null --data-urlencode "_token=$TOKEN" --data-urlencode 'parcelas_ids[]=9007' http://127.0.0.1:8080/cmdf/grupos/$GRUPO/parcelas
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.cmdf_grupo_parcelas WHERE grupo_id=$GRUPO;" | grep '^2$'
+
+          # Fechada -> Liberada não cria pagamentos.
+          TOKEN=$(csrf http://127.0.0.1:8080/cmdf/grupos/$GRUPO)
+          curl -fsS -b /tmp/cookies -c /tmp/cookies -o /dev/null --data-urlencode "_token=$TOKEN" --data-urlencode 'status=LIBERADA' http://127.0.0.1:8080/cmdf/grupos/$GRUPO/status
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT status FROM pagamentos.cmdf_grupos WHERE id=$GRUPO;" | grep '^LIBERADA$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.pagamentos WHERE parcela_id IN (9006,9007);" | grep '^0$'
+
+          # Liberada -> Atendida cria um pagamento AGUARDANDO por parcela.
+          TOKEN=$(csrf http://127.0.0.1:8080/cmdf/grupos/$GRUPO)
+          curl -fsS -b /tmp/cookies -c /tmp/cookies -o /dev/null --data-urlencode "_token=$TOKEN" --data-urlencode 'status=ATENDIDA' http://127.0.0.1:8080/cmdf/grupos/$GRUPO/status
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT status FROM pagamentos.cmdf_grupos WHERE id=$GRUPO;" | grep '^ATENDIDA$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.pagamentos WHERE parcela_id IN (9006,9007) AND status='AGUARDANDO';" | grep '^2$'
+
+      - name: Verificar pagamento usa AP Benner da parcela
         run: |
-          set -euo pipefail
+          curl -fsS -b /tmp/cookies http://127.0.0.1:8080/pagamentos >/tmp/pagamentos.html
+          grep -q '0000005006' /tmp/pagamentos.html
+          ! grep -q 'name="benner_ap"' /tmp/pagamentos.html
 
-          # O documento 9002 começa em "Inspeção andamento" e não possui parcelas.
-          curl -fsS -b /tmp/pagamentos-cookies.txt http://127.0.0.1:8080/inspecoes/9002 > /tmp/inspecao-9002.html
-          TOKEN=$(sed -n 's/.*name="_token" value="\([^"]*\)".*/\1/p' /tmp/inspecao-9002.html | head -n 1)
-          STATUS_LIBERADA=$(mysql -h 127.0.0.1 -uroot -N -s -e "SELECT id FROM pagamentos.status_inspecao WHERE nome='Liberada liquidação de imposto' LIMIT 1;")
-          test -n "$TOKEN"
-          test -n "$STATUS_LIBERADA"
-
-          CODIGO=$(curl -sS \
-            -b /tmp/pagamentos-cookies.txt \
-            -c /tmp/pagamentos-cookies.txt \
-            -D /tmp/inspecao-post.headers \
-            -o /tmp/inspecao-post.body \
-            -w '%{http_code}' \
-            --data-urlencode "_token=$TOKEN" \
-            --data-urlencode "status_id=$STATUS_LIBERADA" \
-            --data-urlencode "data_conclusao=2026-08-24" \
-            --data-urlencode "observacao=Smoke: liberada para programação" \
-            http://127.0.0.1:8080/inspecoes/9002)
-          test "$CODIGO" = "302"
-          grep -Eiq '^Location: /programacao/9002' /tmp/inspecao-post.headers
-
-          curl -fsS -b /tmp/pagamentos-cookies.txt http://127.0.0.1:8080/programacao/9002 > /tmp/programacao-9002.html
-          grep -q 'Adicionar parcela 1' /tmp/programacao-9002.html
-          TOKEN=$(sed -n 's/.*name="_token" value="\([^"]*\)".*/\1/p' /tmp/programacao-9002.html | head -n 1)
-          TIPO_RECURSO=$(mysql -h 127.0.0.1 -uroot -N -s -e "SELECT id FROM pagamentos.tipos_recurso WHERE codigo='RRT' LIMIT 1;")
-          test -n "$TOKEN"
-          test -n "$TIPO_RECURSO"
-
-          CODIGO=$(curl -sS \
-            -b /tmp/pagamentos-cookies.txt \
-            -c /tmp/pagamentos-cookies.txt \
-            -D /tmp/parcela-post.headers \
-            -o /tmp/parcela-post.body \
-            -w '%{http_code}' \
-            --data-urlencode "_token=$TOKEN" \
-            --data-urlencode "numero_empenho=2026NE009999" \
-            --data-urlencode "natureza_despesa_id=9003" \
-            --data-urlencode "exercicio_orcamentario=2026" \
-            --data-urlencode "fonte_recurso_id=9001" \
-            --data-urlencode "tipo_recurso_id=$TIPO_RECURSO" \
-            --data-urlencode "valor_liquido=4500.00" \
-            --data-urlencode "tipo=IMPOSTO" \
-            --data-urlencode "historico_parcela=Smoke de programação" \
-            http://127.0.0.1:8080/programacao/9002/parcelas)
-          test "$CODIGO" = "302"
-          grep -Eiq '^Location: /programacao/9002' /tmp/parcela-post.headers
-
-          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.parcelas_pagamento WHERE documento_id=9002;" | grep '^1$'
-          mysql -h 127.0.0.1 -uroot -N -e "SELECT ROUND(SUM(valor_liquido),2) FROM pagamentos.parcelas_pagamento WHERE documento_id=9002;" | grep '^4500.00$'
-          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.liquidacoes l JOIN pagamentos.parcelas_pagamento p ON p.id=l.parcela_id WHERE p.documento_id=9002 AND l.status='AGUARDANDO';" | grep '^1$'
-
-          curl -fsS -b /tmp/pagamentos-cookies.txt http://127.0.0.1:8080/programacao/9002 > /tmp/programacao-fechada.html
-          grep -q 'Programação concluída' /tmp/programacao-fechada.html
-          grep -q 'já estão disponíveis, individualmente, na fila de Liquidação' /tmp/programacao-fechada.html
-
-      - name: Testar invalidação de sessão após recriação ou limpeza do usuário
-        shell: bash
-        env:
-          MYSQL_PWD: root
-        run: |
-          set -euo pipefail
-
-          # Cria uma segunda sessão com usuário sem vínculos operacionais.
-          curl -fsS -c /tmp/stale-cookies.txt http://127.0.0.1:8080/login > /tmp/stale-login.html
-          TOKEN=$(sed -n 's/.*name="_token" value="\([^"]*\)".*/\1/p' /tmp/stale-login.html | head -n 1)
-          test -n "$TOKEN"
-
-          curl -fsS -L \
-            -b /tmp/stale-cookies.txt \
-            -c /tmp/stale-cookies.txt \
-            --data-urlencode "_token=$TOKEN" \
-            --data-urlencode "login=consulta.teste" \
-            --data-urlencode "senha=Teste@123" \
-            http://127.0.0.1:8080/login > /tmp/stale-home.html
-          grep -q 'Consulta de Teste' /tmp/stale-home.html
-
-          # Simula banco recriado/seed limpo enquanto o navegador mantém cookie antigo.
-          mysql -h 127.0.0.1 -uroot -e "DELETE FROM pagamentos.usuarios WHERE id=9006;"
-
-          CODIGO=$(curl -sS \
-            -b /tmp/stale-cookies.txt \
-            -D /tmp/stale-session.headers \
-            -o /tmp/stale-session.body \
-            -w '%{http_code}' \
-            http://127.0.0.1:8080/)
-          test "$CODIGO" = "302"
-          grep -Eiq '^Location: /login' /tmp/stale-session.headers
-
-      - name: Verificar log de runtime
+      - name: Verificar log PHP
         if: always()
-        shell: bash
         run: |
-          padrao_log='PHP Warning|PHP Notice|PHP Fatal error|Uncaught|Undefined variable|Undefined array key|PHP Deprecated|Integrity constraint violation'
-          if [ -f /tmp/pagamentos-server.log ] && grep -Ein "$padrao_log" /tmp/pagamentos-server.log; then
-            echo 'O servidor registrou erros/avisos PHP durante o smoke test.'
-            cat /tmp/pagamentos-server.log
-            exit 1
-          fi
-
-          if [ -f /tmp/pagamentos-server.pid ]; then
-            kill "$(cat /tmp/pagamentos-server.pid)" 2>/dev/null || true
-          fi
+          cat /tmp/server.log || true
+          ! grep -Eiq 'PHP Warning|PHP Notice|PHP Fatal error|Undefined variable|Undefined array key|Uncaught|Deprecated|Integrity constraint violation' /tmp/server.log

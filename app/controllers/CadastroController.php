@@ -27,12 +27,12 @@ final class CadastroController
     public function atualizarNatureza(string $id):void{$this->executar(fn()=>$this->cadastro->salvarNaturezaDespesa($_POST,(int)$id),'Natureza atualizada.','/naturezas-despesa','/naturezas-despesa/'.$id.'/editar');}
     public function excluirNatureza(string $id):void{$this->executar(fn()=>$this->cadastro->excluirNaturezaDespesa((int)$id),'Natureza excluída.','/naturezas-despesa','/naturezas-despesa');}
 
-    public function tiposRecurso():void{$this->listar('Tipos de recurso','/tipos-recurso',$this->cadastro->tiposRecurso(),['codigo'=>'Código','nome'=>'Descrição','ativo'=>'Ativo']);}
-    public function novoTipoRecurso():void{$this->form('Novo tipo de recurso','/tipos-recurso','/tipos-recurso',null,['codigo'=>'Código','nome'=>'Descrição','ativo'=>'Ativo']);}
-    public function editarTipoRecurso(string $id):void{$this->formCadastro('Editar tipo de recurso','/tipos-recurso','/tipos-recurso/'.$id,$this->cadastro->tipoRecurso((int)$id),['codigo'=>'Código','nome'=>'Descrição','ativo'=>'Ativo']);}
-    public function salvarTipoRecurso():void{$this->executar(fn()=>$this->cadastro->salvarTipoRecurso($_POST),'Tipo de recurso cadastrado.','/tipos-recurso','/tipos-recurso/novo');}
-    public function atualizarTipoRecurso(string $id):void{$this->executar(fn()=>$this->cadastro->salvarTipoRecurso($_POST,(int)$id),'Tipo de recurso atualizado.','/tipos-recurso','/tipos-recurso/'.$id.'/editar');}
-    public function excluirTipoRecurso(string $id):void{$this->executar(fn()=>$this->cadastro->excluirTipoRecurso((int)$id),'Tipo de recurso excluído.','/tipos-recurso','/tipos-recurso');}
+    public function origensRecurso():void{$this->listar('Origens do Recurso','/origens-recurso',$this->cadastro->origensRecurso(),['codigo'=>'Código','nome'=>'Descrição','ativo'=>'Ativo']);}
+    public function novaOrigemRecurso():void{$this->form('Nova Origem do Recurso','/origens-recurso','/origens-recurso',null,['codigo'=>'Código','nome'=>'Descrição','ativo'=>'Ativo']);}
+    public function editarOrigemRecurso(string $id):void{$this->formCadastro('Editar Origem do Recurso','/origens-recurso','/origens-recurso/'.$id,$this->cadastro->origemRecurso((int)$id),['codigo'=>'Código','nome'=>'Descrição','ativo'=>'Ativo']);}
+    public function salvarOrigemRecurso():void{$this->executar(fn()=>$this->cadastro->salvarOrigemRecurso($_POST),'Origem do Recurso cadastrada.','/origens-recurso','/origens-recurso/nova');}
+    public function atualizarOrigemRecurso(string $id):void{$this->executar(fn()=>$this->cadastro->salvarOrigemRecurso($_POST,(int)$id),'Origem do Recurso atualizada.','/origens-recurso','/origens-recurso/'.$id.'/editar');}
+    public function excluirOrigemRecurso(string $id):void{$this->executar(fn()=>$this->cadastro->excluirOrigemRecurso((int)$id),'Origem do Recurso excluída.','/origens-recurso','/origens-recurso');}
 
     public function tiposDocumento():void{$this->listar('Tipos de documento','/tipos-documento',$this->cadastro->tiposDocumento(),['nome'=>'Tipo','exige_numero'=>'Exige número','ativo'=>'Ativo']);}
     public function novoTipoDocumento():void{$this->form('Novo tipo de documento','/tipos-documento','/tipos-documento',null,['nome'=>'Nome','exige_numero'=>'Exige número','ativo'=>'Ativo'],['exige_numero','ativo']);}
@@ -48,18 +48,8 @@ final class CadastroController
     public function atualizarTipoObrigacao(string $id):void{$this->executar(fn()=>$this->cadastro->salvarTipoObrigacao($_POST,(int)$id),'Tipo atualizado.','/tipos-obrigacao','/tipos-obrigacao/'.$id.'/editar');}
     public function excluirTipoObrigacao(string $id):void{$this->executar(fn()=>$this->cadastro->excluirTipoObrigacao((int)$id),'Tipo excluído.','/tipos-obrigacao','/tipos-obrigacao');}
 
-    private function listar(string $titulo,string $baseUrl,array $registros,array $campos):void{
-        View::render('paginas/cadastros/index',compact('titulo','baseUrl','registros','campos'));
-    }
-    private function form(string $titulo,string $baseUrl,string $action,?array $registro,array $campos,array $checkboxes=[],array $numericos=[],array $selects=[]):void{
-        View::render('paginas/cadastros/form',compact('titulo','baseUrl','action','registro','campos','checkboxes','numericos','selects'));
-    }
-    private function formCadastro(string $titulo,string $baseUrl,string $action,?array $registro,array $campos,array $checkboxes=[],array $numericos=[],array $selects=[]):void{
-        if(!$registro){http_response_code(404);echo 'Registro não encontrado';return;}
-        $this->form($titulo,$baseUrl,$action,$registro,$campos,$checkboxes,$numericos,$selects);
-    }
-    private function executar(callable $acao,string $sucesso,string $destino,string $erroDestino):never{
-        try{$acao();$_SESSION['flash']=['success',$sucesso];redirect($destino);}
-        catch(Throwable $e){$_SESSION['flash']=['danger',$e->getMessage()];redirect($erroDestino);}
-    }
+    private function listar(string $titulo,string $baseUrl,array $registros,array $campos):void{View::render('paginas/cadastros/index',compact('titulo','baseUrl','registros','campos'));}
+    private function form(string $titulo,string $baseUrl,string $action,?array $registro,array $campos,array $checkboxes=[],array $numericos=[],array $selects=[]):void{View::render('paginas/cadastros/form',compact('titulo','baseUrl','action','registro','campos','checkboxes','numericos','selects'));}
+    private function formCadastro(string $titulo,string $baseUrl,string $action,?array $registro,array $campos,array $checkboxes=[],array $numericos=[],array $selects=[]):void{if(!$registro){http_response_code(404);echo 'Registro não encontrado';return;}$this->form($titulo,$baseUrl,$action,$registro,$campos,$checkboxes,$numericos,$selects);}
+    private function executar(callable $acao,string $sucesso,string $destino,string $erroDestino):never{try{$acao();$_SESSION['flash']=['success',$sucesso];redirect($destino);}catch(Throwable $e){$_SESSION['flash']=['danger',$e->getMessage()];redirect($erroDestino);}}
 }
