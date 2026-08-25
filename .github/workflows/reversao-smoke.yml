@@ -50,56 +50,45 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          csrf(){ curl -fsS -b /tmp/cookies "$1" | sed -n 's/.*name="_token" value="\([^"]*\)".*/\1/p' | head -1; }
-          post(){ local page="$1" url="$2"; shift 2; local token; token=$(csrf "$page"); curl -fsS -L -b /tmp/cookies -c /tmp/cookies -o /tmp/post.html --data-urlencode "_token=$token" "$@" "$url"; }
+          csrf(){ local html token; html=$(curl -fsS -b /tmp/cookies "$1"); token=$(printf '%s' "$html" | sed -n 's/.*name="_token" value="\([^"]*\)".*/\1/p' | head -1); if [ -z "$token" ]; then echo "Sem token CSRF em $1" >&2; printf '%s\n' "$html" >&2; return 1; fi; printf '%s' "$token"; }
+          post(){ local page="$1" url="$2"; shift 2; local token code; token=$(csrf "$page"); code=$(curl -sS -L -b /tmp/cookies -c /tmp/cookies -o /tmp/post.html -w '%{http_code}' --data-urlencode "_token=$token" "$@" "$url"); if [ "$code" != 200 ]; then echo "POST $url terminou HTTP $code" >&2; cat /tmp/post.html >&2; return 1; fi; }
 
-          # Grupo 9001 começa ATENDIDA e parcela 9001 começa PAGA.
           mysql -h 127.0.0.1 -uroot -N -e "SELECT status FROM pagamentos.cmdf_grupos WHERE id=9001;" | grep '^ATENDIDA$'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT status FROM pagamentos.pagamentos WHERE parcela_id=9001;" | grep '^PAGO$'
 
-          # Não pode desfazer CMDF Atendida enquanto existir pagamento PAGO.
           post http://127.0.0.1:8080/cmdf/grupos/9001 http://127.0.0.1:8080/cmdf/grupos/9001/desfazer --data-urlencode 'motivo=Teste de bloqueio por pagamento'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT status FROM pagamentos.cmdf_grupos WHERE id=9001;" | grep '^ATENDIDA$'
 
-          # Desfaz Pagamento: PAGO -> AGUARDANDO.
           post http://127.0.0.1:8080/pagamentos http://127.0.0.1:8080/documentos/9001/parcelas/9001/pagamento/desfazer --data-urlencode 'motivo=Pagamento lançado incorretamente'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT CONCAT(status,'|',IFNULL(data_pagamento,'NULL'),'|',IFNULL(valor_liquido_pago,'NULL')) FROM pagamentos.pagamentos WHERE parcela_id=9001;" | grep '^AGUARDANDO|NULL|NULL$'
 
-          # CMDF: ATENDIDA -> LIBERADA; pagamentos pendentes do grupo são removidos.
           post http://127.0.0.1:8080/cmdf/grupos/9001 http://127.0.0.1:8080/cmdf/grupos/9001/desfazer --data-urlencode 'motivo=Necessidade de corrigir a CMDF'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT status FROM pagamentos.cmdf_grupos WHERE id=9001;" | grep '^LIBERADA$'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.pagamentos pg JOIN pagamentos.cmdf_grupo_parcelas gp ON gp.parcela_id=pg.parcela_id WHERE gp.grupo_id=9001;" | grep '^0$'
 
-          # CMDF: LIBERADA -> FECHADA.
           post http://127.0.0.1:8080/cmdf/grupos/9001 http://127.0.0.1:8080/cmdf/grupos/9001/desfazer --data-urlencode 'motivo=Reabrir composição do grupo'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT status FROM pagamentos.cmdf_grupos WHERE id=9001;" | grep '^FECHADA$'
 
-          # Remove parcela 9001 do grupo para liberar reversão da Liquidação.
           post http://127.0.0.1:8080/cmdf/grupos/9001 http://127.0.0.1:8080/cmdf/grupos/9001/parcelas/9001/remover
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.cmdf_grupo_parcelas WHERE parcela_id=9001;" | grep '^0$'
 
-          # Não pode desfazer Programação enquanto Liquidação ainda está LIQUIDADA.
           post http://127.0.0.1:8080/programacao/9001 http://127.0.0.1:8080/programacao/9001/parcelas/9001/desfazer --data-urlencode 'motivo=Teste de bloqueio por liquidação'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.parcelas_pagamento WHERE id=9001;" | grep '^1$'
 
-          # Desfaz Liquidação: LIQUIDADA -> AGUARDANDO.
           post http://127.0.0.1:8080/liquidacoes/9001 http://127.0.0.1:8080/liquidacoes/9001/desfazer --data-urlencode 'motivo=Liquidação lançada com dados incorretos'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT CONCAT(status,'|',IFNULL(data_liquidacao,'NULL')) FROM pagamentos.liquidacoes WHERE parcela_id=9001;" | grep '^AGUARDANDO|NULL$'
 
-          # Desfaz Programação: remove parcela e reabre saldo do documento.
+          # Agora a Programação precisa ser realmente removida.
           post http://127.0.0.1:8080/programacao/9001 http://127.0.0.1:8080/programacao/9001/parcelas/9001/desfazer --data-urlencode 'motivo=Programação cadastrada incorretamente'
-          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.parcelas_pagamento WHERE id=9001;" | grep '^0$'
+          if ! mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.parcelas_pagamento WHERE id=9001;" | grep '^0$'; then echo 'Resposta da reversão de Programação:' >&2; cat /tmp/post.html >&2; exit 1; fi
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.parcelas_pagamento WHERE documento_id=9001;" | grep '^2$'
 
-          # Inspeção do documento 9001 ainda não pode reabrir porque restam parcelas.
           post http://127.0.0.1:8080/inspecoes/9001 http://127.0.0.1:8080/inspecoes/9001/desfazer --data-urlencode 'motivo=Teste de bloqueio por programação existente'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT s.nome FROM pagamentos.inspecoes i JOIN pagamentos.status_inspecao s ON s.id=i.status_id WHERE i.documento_id=9001;" | grep '^Liberada liquidação de imposto$'
 
-          # Documento 9008 não possui parcelas: Cancelada -> Inspeção andamento.
           post http://127.0.0.1:8080/inspecoes/9008 http://127.0.0.1:8080/inspecoes/9008/desfazer --data-urlencode 'motivo=Inspeção precisa ser reavaliada'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT CONCAT(s.nome,'|',IFNULL(i.data_conclusao,'NULL')) FROM pagamentos.inspecoes i JOIN pagamentos.status_inspecao s ON s.id=i.status_id WHERE i.documento_id=9008;" | grep '^Inspeção andamento|NULL$'
 
-          # Toda reversão efetiva fica auditada.
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.auditoria WHERE acao IN ('DESFAZER_PAGAMENTO','DESFAZER_CMDF','DESFAZER_LIQUIDACAO','DESFAZER_PROGRAMACAO','DESFAZER_CONCLUSAO') AND id NOT BETWEEN 9000 AND 9999;" | grep -E '^[5-9][0-9]*$'
 
       - name: Verificar erros PHP
