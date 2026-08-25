@@ -30,8 +30,12 @@ return [
  ['POST','/liquidacoes/{parcelaId}','FilaController','salvarLiquidacao'],
 
  ['GET','/cmdf','FilaController','cmdf'],
- ['GET','/cmdf/{parcelaId}','FilaController','cmdfParcela'],
- ['POST','/cmdf/{parcelaId}','FilaController','salvarCmdf'],
+ ['POST','/cmdf/grupos/sugerir','FilaController','sugerirGruposCmdf'],
+ ['POST','/cmdf/grupos','FilaController','criarGrupoCmdf'],
+ ['GET','/cmdf/grupos/{grupoId}','FilaController','grupoCmdf'],
+ ['POST','/cmdf/grupos/{grupoId}/parcelas','FilaController','adicionarParcelasGrupoCmdf'],
+ ['POST','/cmdf/grupos/{grupoId}/parcelas/{parcelaId}/remover','FilaController','removerParcelaGrupoCmdf'],
+ ['POST','/cmdf/grupos/{grupoId}/status','FilaController','salvarStatusGrupoCmdf'],
 
  ['GET','/pagamentos','PagamentoController','index'],
  ['POST','/documentos/{documentoId}/parcelas/{parcelaId}/pagar','PagamentoController','pagar'],
@@ -57,12 +61,12 @@ return [
  ['POST','/naturezas-despesa/{id}','CadastroController','atualizarNatureza'],
  ['POST','/naturezas-despesa/{id}/excluir','CadastroController','excluirNatureza'],
 
- ['GET','/tipos-recurso','CadastroController','tiposRecurso'],
- ['GET','/tipos-recurso/novo','CadastroController','novoTipoRecurso'],
- ['POST','/tipos-recurso','CadastroController','salvarTipoRecurso'],
- ['GET','/tipos-recurso/{id}/editar','CadastroController','editarTipoRecurso'],
- ['POST','/tipos-recurso/{id}','CadastroController','atualizarTipoRecurso'],
- ['POST','/tipos-recurso/{id}/excluir','CadastroController','excluirTipoRecurso'],
+ ['GET','/origens-recurso','CadastroController','origensRecurso'],
+ ['GET','/origens-recurso/nova','CadastroController','novaOrigemRecurso'],
+ ['POST','/origens-recurso','CadastroController','salvarOrigemRecurso'],
+ ['GET','/origens-recurso/{id}/editar','CadastroController','editarOrigemRecurso'],
+ ['POST','/origens-recurso/{id}','CadastroController','atualizarOrigemRecurso'],
+ ['POST','/origens-recurso/{id}/excluir','CadastroController','excluirOrigemRecurso'],
 
  ['GET','/tipos-documento','CadastroController','tiposDocumento'],
  ['GET','/tipos-documento/novo','CadastroController','novoTipoDocumento'],
