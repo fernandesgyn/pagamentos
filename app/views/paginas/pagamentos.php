@@ -30,7 +30,12 @@ $tableFilters=[
             <div><strong><?=e($p['data_pagamento'])?></strong> · <?=money($p['valor_liquido_pago'])?></div><div class="small text-body-secondary"><?=e($p['historico_pagamento']??'')?></div>
           <?php endif;?>
         </td>
-        <td class="text-end"><a href="/documentos/<?=e($p['documento_id'])?>" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-arrow-up-right-from-square me-1"></i>Abrir</a></td>
+        <td class="text-end" style="min-width:220px">
+          <a href="/documentos/<?=e($p['documento_id'])?>" class="btn btn-sm btn-outline-primary"><i class="fa-solid fa-arrow-up-right-from-square me-1"></i>Abrir</a>
+          <?php if($p['status']==='PAGO'):?>
+            <details class="mt-1 text-start"><summary class="btn btn-sm btn-outline-danger">Desfazer pagamento</summary><form method="post" action="/documentos/<?=e($p['documento_id'])?>/parcelas/<?=e($p['parcela_id'])?>/pagamento/desfazer" class="mt-2" onsubmit="return confirm('Desfazer este pagamento?')"><?=Csrf::field()?><input name="motivo" minlength="5" maxlength="255" class="form-control form-control-sm mb-1" required placeholder="Motivo da correção"><button class="btn btn-sm btn-danger w-100"><i class="fa-solid fa-rotate-left me-1"></i>Confirmar reversão</button></form></details>
+          <?php endif;?>
+        </td>
       </tr><?php endforeach;?>
       <?php if(!$pagamentos):?><tr data-table-empty><td colspan="12" class="text-center text-body-secondary py-4">Nenhuma parcela liberada por grupo CMDF Atendida.</td></tr><?php endif;?>
     </tbody>

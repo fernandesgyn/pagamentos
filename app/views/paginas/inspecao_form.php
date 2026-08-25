@@ -33,7 +33,7 @@ require BASE_PATH.'/app/views/components/page_actions.php';
         <select name="status_id" class="form-select" required>
           <?php foreach($status as $s):?><option value="<?=e($s['id'])?>" <?=((int)$s['id']===(int)$doc['status_id'])?'selected':''?>><?=e($s['nome'])?></option><?php endforeach;?>
         </select>
-        <div class="form-text">Ao salvar como “Liberada liquidação de imposto”, o documento segue para Programação. Se seu perfil também puder programar, o sistema abre a tela de parcelas automaticamente.</div>
+        <div class="form-text">“Finalizada” e “Liberada liquidação de imposto” liberam o documento para Programação.</div>
       </div>
       <div class="col-md-3"><label class="form-label">Data de conclusão</label><input type="date" name="data_conclusao" value="<?=e($doc['data_conclusao']??'')?>" class="form-control"><div class="form-text">Usada nos status que encerram a inspeção.</div></div>
       <div class="col-12"><label class="form-label">Observação</label><textarea name="observacao" class="form-control" maxlength="500" rows="3" placeholder="Registro para o histórico da inspeção"></textarea></div>
@@ -41,3 +41,11 @@ require BASE_PATH.'/app/views/components/page_actions.php';
   </div>
   <div class="card-footer d-flex justify-content-end gap-2"><a href="/inspecoes" class="btn btn-outline-secondary">Cancelar</a><button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk me-1"></i>Salvar inspeção</button></div>
 </form>
+
+<?php if(!empty($doc['data_conclusao'])):
+  $reversaoAction='/inspecoes/'.$doc['id'].'/desfazer';
+  $reversaoTitulo='Reabrir Inspeção';
+  $reversaoTexto='Volta a inspeção para “Inspeção andamento”. Se já houver parcelas programadas, desfaça primeiro a Programação.';
+  $reversaoBotao='Reabrir inspeção';
+  require BASE_PATH.'/app/views/components/reversao_form.php';
+endif;?>
