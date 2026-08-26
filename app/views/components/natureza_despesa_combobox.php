@@ -29,6 +29,7 @@ $_naturezas = is_array($naturezas ?? null) ? $naturezas : [];
         type="button"
         class="list-group-item list-group-item-action"
         data-combobox-option
+        data-natureza-option
         data-value="<?=e((string)$_naturezaId)?>"
         data-label="<?=e($_naturezaLabel)?>">
         <span class="d-block fw-semibold"><?=e($_naturezaCodigo)?></span>
