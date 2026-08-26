@@ -37,6 +37,9 @@ final class FilaController
         try {
             $atual = $this->fluxo->documento((int)$documentoId);
             if (!$atual) throw new RuntimeException('Documento não encontrado.');
+            if (trim((string)($_POST['data_conclusao'] ?? '')) === '') {
+                throw new InvalidArgumentException('Informe a Data de conclusão da Inspeção.');
+            }
             if (!empty($atual['data_conclusao'])) {
                 throw new RuntimeException('A Inspeção já está encerrada. Use “Reabrir Inspeção” para voltar ao fluxo anterior de forma auditada.');
             }

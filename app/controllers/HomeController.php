@@ -28,6 +28,13 @@ final class HomeController
     public function salvarObrigacao():void{
         Auth::requirePermission('obrigacao.gerir');
         try{
+            if(
+                trim((string)($_POST['nr_sei_contratacao']??''))==='' ||
+                trim((string)($_POST['data_inicio']??''))==='' ||
+                trim((string)($_POST['data_fim']??''))===''
+            ){
+                throw new InvalidArgumentException('Preencha todos os campos obrigatórios da Obrigação.');
+            }
             $this->fluxo->criarObrigacao($_POST);
             $_SESSION['flash']=['success','Obrigação cadastrada.'];
             redirect('/obrigacoes');
@@ -62,6 +69,12 @@ final class HomeController
     public function salvarDocumento():void{
         Auth::requirePermission('documento.gerir');
         try{
+            if(
+                trim((string)($_POST['data_atesto']??''))==='' ||
+                trim((string)($_POST['data_envio_cooinsp']??''))===''
+            ){
+                throw new InvalidArgumentException('Preencha todos os campos obrigatórios do Documento.');
+            }
             $this->fluxo->criarDocumento($_POST);
             $_SESSION['flash']=['success','Documento lançado. O registro está disponível na fila de inspeção.'];
             redirect('/documentos');

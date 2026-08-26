@@ -40,9 +40,9 @@ foreach($naturezas as $n){
       <div class="col-md-6 col-lg-4 col-xl-2"><label class="form-label">Número *</label><input name="numero" class="form-control" required></div>
       <div class="col-md-6 col-lg-4 col-xl-2"><label class="form-label">Ano *</label><input name="ano" type="number" min="2000" max="2100" value="<?=date('Y')?>" class="form-control" required></div>
       <div class="col-md-6 col-lg-4 col-xl-2"><label class="form-label">Valor Total da Obrigação *</label><input name="valor_total" class="form-control" placeholder="0,00" required></div>
-      <div class="col-md-6 col-lg-4 col-xl-2"><label class="form-label">Nr. SEI da Contratação</label><input name="nr_sei_contratacao" class="form-control" maxlength="50"></div>
-      <div class="col-md-6 col-lg-4 col-xl-2"><label class="form-label">Data início</label><input type="date" name="data_inicio" class="form-control"></div>
-      <div class="col-md-6 col-lg-4 col-xl-2"><label class="form-label">Data fim</label><input type="date" name="data_fim" class="form-control"></div>
+      <div class="col-md-6 col-lg-4 col-xl-2"><label class="form-label">Nr. SEI da Contratação *</label><input name="nr_sei_contratacao" class="form-control" maxlength="50" required></div>
+      <div class="col-md-6 col-lg-4 col-xl-2"><label class="form-label">Data início *</label><input type="date" name="data_inicio" class="form-control" required></div>
+      <div class="col-md-6 col-lg-4 col-xl-2"><label class="form-label">Data fim *</label><input type="date" name="data_fim" class="form-control" required></div>
 
       <div class="col-12" data-repeat-select>
         <div class="d-flex justify-content-between align-items-center mb-2">

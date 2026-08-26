@@ -35,7 +35,7 @@ require BASE_PATH.'/app/views/components/page_actions.php';
         </select>
         <div class="form-text">“Finalizada” e “Liberada liquidação de imposto” liberam o documento para Programação.</div>
       </div>
-      <div class="col-md-3"><label class="form-label">Data de conclusão</label><input type="date" name="data_conclusao" value="<?=e($doc['data_conclusao']??'')?>" class="form-control"><div class="form-text">Usada nos status que encerram a inspeção.</div></div>
+      <div class="col-md-3"><label class="form-label">Data de conclusão *</label><input type="date" name="data_conclusao" value="<?=e($doc['data_conclusao']??'')?>" class="form-control" required><div class="form-text">Obrigatória ao salvar a inspeção; o encerramento continua definido pelo Status.</div></div>
       <div class="col-12"><label class="form-label">Observação</label><textarea name="observacao" class="form-control" maxlength="500" rows="3" placeholder="Registro para o histórico da inspeção"></textarea></div>
     </div>
   </div>
