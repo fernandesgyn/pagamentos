@@ -28,9 +28,9 @@ final class HomeController
     public function salvarObrigacao():void{
         Auth::requirePermission('obrigacao.gerir');
         try{
-            $id=$this->fluxo->criarObrigacao($_POST);
+            $this->fluxo->criarObrigacao($_POST);
             $_SESSION['flash']=['success','Obrigação cadastrada.'];
-            redirect('/documentos/novo?obrigacao_id='.$id);
+            redirect('/obrigacoes');
         }catch(Throwable $e){
             $_SESSION['flash']=['danger',$e->getMessage()];
             redirect('/obrigacoes/nova');
@@ -62,9 +62,9 @@ final class HomeController
     public function salvarDocumento():void{
         Auth::requirePermission('documento.gerir');
         try{
-            $id=$this->fluxo->criarDocumento($_POST);
-            $_SESSION['flash']=['success','Documento lançado e enviado à fila de inspeção.'];
-            redirect('/documentos/'.$id);
+            $this->fluxo->criarDocumento($_POST);
+            $_SESSION['flash']=['success','Documento lançado. O registro está disponível na fila de inspeção.'];
+            redirect('/documentos');
         }catch(Throwable $e){
             $_SESSION['flash']=['danger',$e->getMessage()];
             redirect('/documentos/novo');
