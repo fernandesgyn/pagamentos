@@ -30,6 +30,7 @@ jobs:
           test ! -d database/migrations
           mysql -h 127.0.0.1 -uroot -e "DROP DATABASE IF EXISTS pagamentos;"
           mysql -h 127.0.0.1 -uroot < database/schema.sql
+          mysql -h 127.0.0.1 -uroot pagamentos < database/seeds/000_naturezas_despesa_reais.sql
           mysql -h 127.0.0.1 -uroot pagamentos < database/seeds/001_cadastros_teste.sql
           mysql -h 127.0.0.1 -uroot pagamentos < database/seeds/002_fluxo_documentos_inspecoes_teste.sql
           mysql -h 127.0.0.1 -uroot pagamentos < database/seeds/003_programacao_liquidacao_cmdf_pagamento_teste.sql
