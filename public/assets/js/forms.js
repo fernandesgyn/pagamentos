@@ -3,7 +3,12 @@ document.addEventListener('DOMContentLoaded', function () {
     return (value || '').toString().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   }
 
-  document.querySelectorAll('[data-supplier-combobox]').forEach(function (combo) {
+  var comboboxSelector = '[data-supplier-combobox], [data-natureza-combobox]';
+
+  function initSearchCombobox(combo) {
+    if (!combo || combo.dataset.comboboxInitialized === '1') return;
+    combo.dataset.comboboxInitialized = '1';
+
     var input = combo.querySelector('[data-combobox-input]');
     var value = combo.querySelector('[data-combobox-value]');
     var menu = combo.querySelector('[data-combobox-menu]');
@@ -12,6 +17,10 @@ document.addEventListener('DOMContentLoaded', function () {
     if (!input || !value || !menu) return;
 
     var activeIndex = -1;
+    var invalidMessage = combo.dataset.comboboxInvalid ||
+      (combo.hasAttribute('data-supplier-combobox')
+        ? 'Selecione um fornecedor na lista de resultados.'
+        : 'Selecione uma opção na lista de resultados.');
 
     function closeMenu() {
       menu.classList.add('d-none');
@@ -19,6 +28,8 @@ document.addEventListener('DOMContentLoaded', function () {
       activeIndex = -1;
       options.forEach(function (option) { option.classList.remove('active'); });
     }
+
+    combo._closeSearchMenu = closeMenu;
 
     function visibleOptions() {
       return options.filter(function (option) { return !option.classList.contains('d-none'); });
@@ -55,7 +66,7 @@ document.addEventListener('DOMContentLoaded', function () {
     input.addEventListener('input', function () {
       value.value = '';
       value.dispatchEvent(new Event('change', { bubbles: true }));
-      input.setCustomValidity('Selecione um fornecedor na lista de resultados.');
+      input.setCustomValidity(invalidMessage);
       openAndFilter();
     });
 
@@ -88,23 +99,41 @@ document.addEventListener('DOMContentLoaded', function () {
         closeMenu();
       }
     });
+  }
 
-    document.addEventListener('mousedown', function (event) {
-      if (!combo.contains(event.target)) closeMenu();
+  document.querySelectorAll(comboboxSelector).forEach(initSearchCombobox);
+
+  document.addEventListener('mousedown', function (event) {
+    document.querySelectorAll(comboboxSelector).forEach(function (combo) {
+      if (!combo.contains(event.target) && typeof combo._closeSearchMenu === 'function') {
+        combo._closeSearchMenu();
+      }
     });
+  });
 
-    var form = combo.closest('form');
-    if (form) {
-      form.addEventListener('submit', function (event) {
+  document.querySelectorAll('form').forEach(function (form) {
+    form.addEventListener('submit', function (event) {
+      var firstInvalid = null;
+      form.querySelectorAll(comboboxSelector).forEach(function (combo) {
+        var input = combo.querySelector('[data-combobox-input]');
+        var value = combo.querySelector('[data-combobox-value]');
+        if (!input || !value) return;
+        var invalidMessage = combo.dataset.comboboxInvalid ||
+          (combo.hasAttribute('data-supplier-combobox')
+            ? 'Selecione um fornecedor na lista de resultados.'
+            : 'Selecione uma opção na lista de resultados.');
         if (value.value === '') {
-          input.setCustomValidity('Selecione um fornecedor na lista de resultados.');
-          input.reportValidity();
-          event.preventDefault();
+          input.setCustomValidity(invalidMessage);
+          if (!firstInvalid) firstInvalid = input;
         } else {
           input.setCustomValidity('');
         }
       });
-    }
+      if (firstInvalid) {
+        event.preventDefault();
+        firstInvalid.reportValidity();
+      }
+    });
   });
 
   document.querySelectorAll('[data-repeat-select]').forEach(function (group) {
@@ -112,28 +141,52 @@ document.addEventListener('DOMContentLoaded', function () {
     var rows = group.querySelector('[data-repeat-rows]');
     if (!add || !rows) return;
 
+    function resetRow(row) {
+      row.querySelectorAll('select').forEach(function (select) { select.value = ''; });
+      row.querySelectorAll('[data-combobox-input]').forEach(function (input) {
+        input.value = '';
+        input.setCustomValidity('');
+        input.setAttribute('aria-expanded', 'false');
+      });
+      row.querySelectorAll('[data-combobox-value]').forEach(function (value) { value.value = ''; });
+      row.querySelectorAll('[data-combobox-menu]').forEach(function (menu) { menu.classList.add('d-none'); });
+      row.querySelectorAll('[data-combobox-option]').forEach(function (option) {
+        option.classList.remove('active', 'd-none');
+      });
+      row.querySelectorAll(comboboxSelector).forEach(function (combo) {
+        combo.removeAttribute('data-combobox-initialized');
+      });
+    }
+
     function wireRemove(row) {
       var remove = row.querySelector('[data-repeat-remove]');
       if (!remove) return;
       remove.addEventListener('click', function () {
         var allRows = rows.querySelectorAll('[data-repeat-row]');
-        if (allRows.length > 1) row.remove();
-        else {
-          var select = row.querySelector('select');
-          if (select) select.value = '';
+        if (allRows.length > 1) {
+          row.remove();
+        } else {
+          resetRow(row);
+          row.querySelectorAll(comboboxSelector).forEach(initSearchCombobox);
         }
       });
     }
 
-    rows.querySelectorAll('[data-repeat-row]').forEach(wireRemove);
+    rows.querySelectorAll('[data-repeat-row]').forEach(function (row) {
+      wireRemove(row);
+      row.querySelectorAll(comboboxSelector).forEach(initSearchCombobox);
+    });
+
     add.addEventListener('click', function () {
       var first = rows.querySelector('[data-repeat-row]');
       if (!first) return;
       var clone = first.cloneNode(true);
-      var select = clone.querySelector('select');
-      if (select) select.value = '';
+      resetRow(clone);
       rows.appendChild(clone);
       wireRemove(clone);
+      clone.querySelectorAll(comboboxSelector).forEach(initSearchCombobox);
+      var input = clone.querySelector('[data-combobox-input]');
+      if (input) input.focus();
     });
   });
 
