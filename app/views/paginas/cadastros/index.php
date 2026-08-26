@@ -31,7 +31,11 @@ require BASE_PATH.'/app/views/components/page_actions.php';
       <?php endforeach;?>
       <td class="text-end portal-actions-cell"><div class="portal-action-group portal-table-actions justify-content-end">
         <a class="btn btn-sm btn-outline-primary" href="<?=e($baseUrl)?>/<?=e($r['id'])?>/editar"><i class="fa-solid fa-pen-to-square" aria-hidden="true"></i>Editar</a>
-        <form method="post" action="<?=e($baseUrl)?>/<?=e($r['id'])?>/excluir" onsubmit="return confirm('Excluir este registro?')"><?=Csrf::field()?><button class="btn btn-sm btn-outline-danger" type="submit"><i class="fa-solid fa-trash" aria-hidden="true"></i>Excluir</button></form>
+        <?php if((bool)($r['em_uso']??false)):?>
+          <button class="btn btn-sm btn-outline-danger" type="button" disabled aria-disabled="true" title="Registro em uso. A exclusão não é permitida." data-delete-disabled><i class="fa-solid fa-trash" aria-hidden="true"></i>Excluir</button>
+        <?php else:?>
+          <form method="post" action="<?=e($baseUrl)?>/<?=e($r['id'])?>/excluir" onsubmit="return confirm('Excluir este registro?')"><?=Csrf::field()?><button class="btn btn-sm btn-outline-danger" type="submit"><i class="fa-solid fa-trash" aria-hidden="true"></i>Excluir</button></form>
+        <?php endif;?>
       </div></td>
     </tr><?php endforeach;?>
     <?php if(!$registros):?><tr data-table-empty><td colspan="<?=count($campos)+1?>" class="text-center text-body-secondary py-4">Nenhum registro cadastrado.</td></tr><?php endif;?>
