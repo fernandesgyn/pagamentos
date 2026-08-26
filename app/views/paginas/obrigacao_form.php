@@ -54,12 +54,9 @@ $fornecedorComboboxId='obrigacao-fornecedor';
           <button type="button" class="btn btn-sm btn-outline-primary" data-repeat-add><i class="fa-solid fa-plus me-1"></i>Adicionar natureza</button>
         </div>
         <div data-repeat-rows>
-          <div class="input-group mb-2" data-repeat-row>
-            <select name="naturezas_despesa_ids[]" class="form-select" required>
-              <option value="">Selecione</option>
-              <?php foreach($naturezas as $n):?><option value="<?=e($n['id'])?>"><?=e($n['codigo'])?> — <?=e($n['nome'])?></option><?php endforeach;?>
-            </select>
-            <button type="button" class="btn btn-outline-danger" data-repeat-remove title="Remover"><i class="fa-solid fa-minus"></i></button>
+          <div class="d-flex gap-2 align-items-start mb-2" data-repeat-row>
+            <?php require BASE_PATH.'/app/views/components/natureza_despesa_combobox.php';?>
+            <button type="button" class="btn btn-outline-danger" data-repeat-remove title="Remover natureza"><i class="fa-solid fa-minus"></i></button>
           </div>
         </div>
       </div>
