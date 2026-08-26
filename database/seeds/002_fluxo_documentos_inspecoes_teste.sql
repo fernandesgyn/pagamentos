@@ -17,6 +17,9 @@ SET @st_retornada=(SELECT id FROM status_inspecao WHERE nome='Retornada para ins
 SET @st_finalizada=(SELECT id FROM status_inspecao WHERE nome='Finalizada' LIMIT 1);
 SET @st_liberada=(SELECT id FROM status_inspecao WHERE nome='Liberada liquidação de imposto' LIMIT 1);
 SET @st_cancelada=(SELECT id FROM status_inspecao WHERE nome='Cancelada' LIMIT 1);
+SET @nat_serv_pf=(SELECT id FROM naturezas_despesa WHERE codigo='3.3.90.36.00' LIMIT 1);
+SET @nat_serv_pj=(SELECT id FROM naturezas_despesa WHERE codigo='3.3.90.39.00' LIMIT 1);
+SET @nat_ti=(SELECT id FROM naturezas_despesa WHERE codigo='3.3.90.40.00' LIMIT 1);
 
 INSERT INTO obrigacoes
 (id,tipo_obrigacao_id,fornecedor_id,numero,ano,valor_total,nr_sei_contratacao,data_inicio,data_fim,ativo,criado_por,criado_em)
@@ -33,7 +36,7 @@ INSERT INTO obrigacao_fontes_recurso(obrigacao_id,fonte_recurso_id) VALUES
 (9001,9001),(9001,9002),(9002,9001),(9003,9002),(9004,9002),(9004,9004),(9005,9003),(9006,9001)
 ON DUPLICATE KEY UPDATE fonte_recurso_id=VALUES(fonte_recurso_id);
 INSERT INTO obrigacao_naturezas_despesa(obrigacao_id,natureza_despesa_id) VALUES
-(9001,9003),(9001,9004),(9002,9003),(9003,9003),(9004,9002),(9004,9003),(9005,9002),(9006,9003)
+(9001,@nat_serv_pj),(9001,@nat_ti),(9002,@nat_serv_pj),(9003,@nat_serv_pj),(9004,@nat_serv_pf),(9004,@nat_serv_pj),(9005,@nat_serv_pf),(9006,@nat_serv_pj)
 ON DUPLICATE KEY UPDATE natureza_despesa_id=VALUES(natureza_despesa_id);
 
 INSERT INTO documentos_pagamento
