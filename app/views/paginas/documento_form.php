@@ -28,9 +28,9 @@ $fornecedorComboboxId='documento-fornecedor';
 
       <div class="col-md-6 col-lg-4 col-xl"><label class="form-label">Tipo do documento *</label><select name="tipo_documento_id" class="form-select" required><option value="">Selecione</option><?php foreach($tipos as $t):?><option value="<?=e($t['id'])?>"><?=e($t['nome'])?></option><?php endforeach;?></select></div>
       <div class="col-md-6 col-lg-4 col-xl"><label class="form-label">Número *</label><input name="numero" class="form-control" required></div>
-      <div class="col-md-6 col-lg-4 col-xl"><label class="form-label">Data de emissão do documento *</label><input type="date" name="data_emissao" value="<?=date('Y-m-d')?>" class="form-control" required></div>
-      <div class="col-md-6 col-lg-4 col-xl"><label class="form-label">Data do atesto</label><input type="date" name="data_atesto" class="form-control"></div>
-      <div class="col-md-6 col-lg-4 col-xl"><label class="form-label">Data Envio à COOINSP</label><input type="date" name="data_envio_cooinsp" class="form-control"></div>
+      <div class="col-md-6 col-lg-4 col-xl"><label class="form-label">Emissão do documento *</label><input type="date" name="data_emissao" value="<?=date('Y-m-d')?>" class="form-control" required></div>
+      <div class="col-md-6 col-lg-4 col-xl"><label class="form-label">Data do atesto *</label><input type="date" name="data_atesto" class="form-control" required></div>
+      <div class="col-md-6 col-lg-4 col-xl"><label class="form-label">Data Envio à COOINSP *</label><input type="date" name="data_envio_cooinsp" class="form-control" required></div>
       <div class="col-md-6 col-lg-4 col-xl"><label class="form-label">Valor bruto *</label><input name="valor_bruto" class="form-control" required placeholder="0,00"></div>
       <div class="col-md-6 col-lg-4 col-xl"><label class="form-label">Valor líquido *</label><input name="valor_liquido" class="form-control" required placeholder="0,00"></div>
       <div class="col-12"><div class="form-text">A data e hora do lançamento são registradas automaticamente pelo sistema.</div></div>
