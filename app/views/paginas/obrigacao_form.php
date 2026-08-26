@@ -3,7 +3,19 @@ $pageBackUrl='/obrigacoes';
 require BASE_PATH.'/app/views/components/page_actions.php';
 $fornecedorSelecionado=(int)($_GET['fornecedor_id']??0);
 $fornecedorComboboxId='obrigacao-fornecedor';
+$naturezasDataset=[];
+foreach($naturezas as $n){
+    $codigo=trim((string)($n['codigo']??''));
+    $descricao=trim((string)($n['nome']??''));
+    $naturezasDataset[]=[
+        'value'=>(string)($n['id']??''),
+        'label'=>$codigo.' — '.$descricao,
+        'primary'=>$codigo,
+        'secondary'=>$descricao,
+    ];
+}
 ?>
+<script type="application/json" id="naturezas-despesa-dataset"><?=json_encode($naturezasDataset,JSON_UNESCAPED_UNICODE|JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT)?></script>
 <?php if(!$fontes||!$naturezas):?>
 <div class="alert alert-warning">
   Antes de cadastrar uma obrigação, cadastre ao menos uma <a href="/fontes-recurso" class="alert-link">Fonte de recurso</a> e uma <a href="/naturezas-despesa" class="alert-link">Natureza da despesa</a>.
@@ -54,12 +66,9 @@ $fornecedorComboboxId='obrigacao-fornecedor';
           <button type="button" class="btn btn-sm btn-outline-primary" data-repeat-add><i class="fa-solid fa-plus me-1"></i>Adicionar natureza</button>
         </div>
         <div data-repeat-rows>
-          <div class="input-group mb-2" data-repeat-row>
-            <select name="naturezas_despesa_ids[]" class="form-select" required>
-              <option value="">Selecione</option>
-              <?php foreach($naturezas as $n):?><option value="<?=e($n['id'])?>"><?=e($n['codigo'])?> — <?=e($n['nome'])?></option><?php endforeach;?>
-            </select>
-            <button type="button" class="btn btn-outline-danger" data-repeat-remove title="Remover"><i class="fa-solid fa-minus"></i></button>
+          <div class="d-flex gap-2 align-items-start mb-2" data-repeat-row>
+            <?php require BASE_PATH.'/app/views/components/natureza_despesa_combobox.php';?>
+            <button type="button" class="btn btn-outline-danger" data-repeat-remove title="Remover natureza"><i class="fa-solid fa-minus"></i></button>
           </div>
         </div>
       </div>
@@ -70,4 +79,4 @@ $fornecedorComboboxId='obrigacao-fornecedor';
     <button type="submit" class="btn btn-primary" <?=(!$fontes||!$naturezas)?'disabled':''?>><i class="fa-solid fa-floppy-disk me-1"></i>Salvar</button>
   </div>
 </form>
-<?php unset($fornecedorSelecionado,$fornecedorComboboxId);?>
+<?php unset($fornecedorSelecionado,$fornecedorComboboxId,$naturezasDataset,$codigo,$descricao,$n);?>
