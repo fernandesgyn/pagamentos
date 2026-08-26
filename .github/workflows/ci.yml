@@ -29,6 +29,7 @@ jobs:
           set -euo pipefail
           test -f database/schema.sql
           test ! -d database/migrations
+          test -f database/seeds/000_naturezas_despesa_reais.sql
           ! grep -q 'DROP DATABASE' database/schema.sql
           grep -q 'CREATE TABLE origens_recurso' database/schema.sql
           grep -q 'CREATE TABLE cmdf_grupos' database/schema.sql
@@ -62,10 +63,20 @@ jobs:
         env: {MYSQL_PWD: root}
         run: |
           for rodada in 1 2; do
+            mysql -h 127.0.0.1 -uroot pagamentos < database/seeds/000_naturezas_despesa_reais.sql
             mysql -h 127.0.0.1 -uroot pagamentos < database/seeds/001_cadastros_teste.sql
             mysql -h 127.0.0.1 -uroot pagamentos < database/seeds/002_fluxo_documentos_inspecoes_teste.sql
             mysql -h 127.0.0.1 -uroot pagamentos < database/seeds/003_programacao_liquidacao_cmdf_pagamento_teste.sql
           done
+
+      - name: Validar cadastro mestre de Naturezas da Despesa
+        env: {MYSQL_PWD: root}
+        run: |
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.naturezas_despesa;" | grep '^1157$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(DISTINCT codigo) FROM pagamentos.naturezas_despesa;" | grep '^1157$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.naturezas_despesa WHERE id BETWEEN 100001 AND 101157 AND ativo=1;" | grep '^1157$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT nome FROM pagamentos.naturezas_despesa WHERE codigo='3.3.90.40.00';" | grep -Fx 'Serviço de Tecnologia da Informação e Comunicação - Pessoa Jurídica'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.naturezas_despesa WHERE codigo IN ('3.3.90.30','3.3.90.36','3.3.90.39','3.3.90.40');" | grep '^0$'
 
       - name: Validar massa e regras CMDF
         env: {MYSQL_PWD: root}
@@ -78,6 +89,7 @@ jobs:
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM (SELECT gp.grupo_id,COUNT(DISTINCT CONCAT(p.fonte_recurso_id,'|',p.exercicio_orcamentario,'|',p.sequencial,'|',p.grupo_despesa,'|',p.origem_recurso_id)) chaves FROM pagamentos.cmdf_grupo_parcelas gp JOIN pagamentos.parcelas_pagamento p ON p.id=gp.parcela_id GROUP BY gp.grupo_id HAVING chaves<>1) x;" | grep '^0$'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.pagamentos pg JOIN pagamentos.cmdf_grupo_parcelas gp ON gp.parcela_id=pg.parcela_id JOIN pagamentos.cmdf_grupos g ON g.id=gp.grupo_id WHERE g.status<>'ATENDIDA';" | grep '^0$'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.parcelas_pagamento p JOIN pagamentos.liquidacoes l ON l.parcela_id=p.id LEFT JOIN pagamentos.cmdf_grupo_parcelas gp ON gp.parcela_id=p.id WHERE p.id IN (9006,9007) AND l.status='LIQUIDADA' AND gp.parcela_id IS NULL;" | grep '^2$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.parcelas_pagamento p JOIN pagamentos.naturezas_despesa n ON n.id=p.natureza_despesa_id WHERE p.id BETWEEN 9000 AND 9999 AND n.id BETWEEN 100001 AND 101157;" | grep '^7$'
 
       - name: Validar cardinalidade Fornecedor 1 para N Obrigações
         env: {MYSQL_PWD: root}
@@ -92,3 +104,4 @@ jobs:
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.parcelas_pagamento WHERE id BETWEEN 9000 AND 9999;" | grep '^0$'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.cmdf_grupos WHERE id BETWEEN 9000 AND 9999;" | grep '^0$'
           mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.usuarios WHERE id BETWEEN 9000 AND 9999;" | grep '^0$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.naturezas_despesa;" | grep '^1157$'

@@ -2,17 +2,20 @@ USE pagamentos;
 
 SET @rrt=(SELECT id FROM origens_recurso WHERE codigo='RRT' LIMIT 1);
 SET @rdo=(SELECT id FROM origens_recurso WHERE codigo='RDO' LIMIT 1);
+SET @nat_serv_pf=(SELECT id FROM naturezas_despesa WHERE codigo='3.3.90.36.00' LIMIT 1);
+SET @nat_serv_pj=(SELECT id FROM naturezas_despesa WHERE codigo='3.3.90.39.00' LIMIT 1);
+SET @nat_ti=(SELECT id FROM naturezas_despesa WHERE codigo='3.3.90.40.00' LIMIT 1);
 
 INSERT INTO parcelas_pagamento
 (id,documento_id,numero_parcela,numero_empenho,natureza_despesa_id,exercicio_orcamentario,fonte_recurso_id,origem_recurso_id,valor_liquido,tipo,data_vencimento,ipof,ap_benner,sequencial,grupo_despesa,historico_parcela,justificativa_ordem_cronologica,criado_por,criado_em)
 VALUES
-(9001,9001,1,'2026NE000101',9004,2026,9001,@rrt,3000.00,'ISS','2026-07-10','0000001001','0000005001','101','33','Parcela 1 da NF 50 - ISS.',NULL,9002,'2026-07-03 16:20:00'),
-(9002,9001,2,'2026NE000102',9003,2026,9001,@rrt,3000.00,'IR','2026-07-12','0000001002','0000005002','101','33','Parcela 2 da NF 50 - IR.',NULL,9002,'2026-07-03 16:25:00'),
-(9003,9001,3,'2026NE000103',9003,2026,9002,@rdo,3000.00,'INSS','2026-07-15','0000001003','0000005003','102','33','Parcela 3 da NF 50 - INSS.','Processamento conforme ordem cronológica.',9002,'2026-07-03 16:30:00'),
-(9004,9005,1,'2026NE000104',9003,2026,9001,@rdo,7500.00,'DARE','2026-07-30','0000001004','0000005004','201','33','Parcela única da NF 901.',NULL,9002,'2026-07-22 13:40:00'),
-(9005,9006,1,'2026NE000105',9003,2026,9002,@rrt,2700.00,'PIS','2026-06-20','0000001005','0000005005','301','44','Parcela única do Recibo 10.',NULL,9002,'2026-06-12 10:30:00'),
-(9006,9003,1,'2026NE000106',9002,2026,9003,@rdo,5500.00,'COFINS','2026-07-25','0000001006','0000005006','777','44','Parcela 1 da Fatura 77.',NULL,9002,'2026-07-18 16:00:00'),
-(9007,9003,2,'2026NE000107',9002,2026,9003,@rdo,5500.00,'IR','2026-07-25','0000001007','0000005007','777','44','Parcela 2 da Fatura 77.',NULL,9002,'2026-07-18 16:05:00')
+(9001,9001,1,'2026NE000101',@nat_ti,2026,9001,@rrt,3000.00,'ISS','2026-07-10','0000001001','0000005001','101','33','Parcela 1 da NF 50 - ISS.',NULL,9002,'2026-07-03 16:20:00'),
+(9002,9001,2,'2026NE000102',@nat_serv_pj,2026,9001,@rrt,3000.00,'IR','2026-07-12','0000001002','0000005002','101','33','Parcela 2 da NF 50 - IR.',NULL,9002,'2026-07-03 16:25:00'),
+(9003,9001,3,'2026NE000103',@nat_serv_pj,2026,9002,@rdo,3000.00,'INSS','2026-07-15','0000001003','0000005003','102','33','Parcela 3 da NF 50 - INSS.','Processamento conforme ordem cronológica.',9002,'2026-07-03 16:30:00'),
+(9004,9005,1,'2026NE000104',@nat_serv_pj,2026,9001,@rdo,7500.00,'DARE','2026-07-30','0000001004','0000005004','201','33','Parcela única da NF 901.',NULL,9002,'2026-07-22 13:40:00'),
+(9005,9006,1,'2026NE000105',@nat_serv_pj,2026,9002,@rrt,2700.00,'PIS','2026-06-20','0000001005','0000005005','301','44','Parcela única do Recibo 10.',NULL,9002,'2026-06-12 10:30:00'),
+(9006,9003,1,'2026NE000106',@nat_serv_pf,2026,9003,@rdo,5500.00,'COFINS','2026-07-25','0000001006','0000005006','777','44','Parcela 1 da Fatura 77.',NULL,9002,'2026-07-18 16:00:00'),
+(9007,9003,2,'2026NE000107',@nat_serv_pf,2026,9003,@rdo,5500.00,'IR','2026-07-25','0000001007','0000005007','777','44','Parcela 2 da Fatura 77.',NULL,9002,'2026-07-18 16:05:00')
 ON DUPLICATE KEY UPDATE numero_empenho=VALUES(numero_empenho),natureza_despesa_id=VALUES(natureza_despesa_id),exercicio_orcamentario=VALUES(exercicio_orcamentario),fonte_recurso_id=VALUES(fonte_recurso_id),origem_recurso_id=VALUES(origem_recurso_id),valor_liquido=VALUES(valor_liquido),tipo=VALUES(tipo),data_vencimento=VALUES(data_vencimento),ipof=VALUES(ipof),ap_benner=VALUES(ap_benner),sequencial=VALUES(sequencial),grupo_despesa=VALUES(grupo_despesa),historico_parcela=VALUES(historico_parcela),justificativa_ordem_cronologica=VALUES(justificativa_ordem_cronologica),criado_por=VALUES(criado_por);
 
 INSERT INTO liquidacoes(id,parcela_id,status,data_liquidacao,usuario_id,criado_em,atualizado_em) VALUES

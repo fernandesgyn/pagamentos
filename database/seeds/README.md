@@ -1,8 +1,35 @@
-# Seeds de homologação
+# Seeds e dados de referência
 
-Os seeds são exclusivamente de homologação/testes e usam IDs de 9000 a 9999. Não execute em produção.
+## Naturezas da Despesa reais
 
-## Carga
+`000_naturezas_despesa_reais.sql` carrega o cadastro mestre de **1.157 Naturezas da Despesa reais**, extraídas da planilha institucional fornecida em 26/08/2026.
+
+A fonte possui dois atributos:
+
+- `Natureza Despesa` → gravado em `naturezas_despesa.codigo`;
+- `Descrição` → gravado em `naturezas_despesa.nome`.
+
+O nome interno da coluna `nome` é mantido por compatibilidade com a arquitetura atual; funcionalmente ele representa a descrição oficial. O cadastro mestre usa IDs de `100001` a `101157`, não pertence à massa descartável de homologação e **não é removido** por `999_limpar_testes.sql`.
+
+As descrições preservam o conteúdo da fonte, com normalização apenas de espaços residuais no início/fim das células. O arquivo mestre é idempotente e pode ser reaplicado para atualizar as descrições oficiais pelo código.
+
+### Carga do cadastro mestre
+
+Para uma base que precisa apenas dos dados reais de referência:
+
+```bash
+mysql -u root -p pagamentos < database/seeds/000_naturezas_despesa_reais.sql
+```
+
+## Massa de homologação
+
+Os seeds `001`, `002` e `003` são exclusivamente de homologação/testes e usam IDs de 9000 a 9999 para seus registros próprios. Não execute essa massa de teste em produção.
+
+O seed `001_cadastros_teste.sql` carrega automaticamente o cadastro mestre de Naturezas da Despesa antes de criar a massa descartável. Assim os cenários de homologação nunca dependem de naturezas fictícias.
+
+### Carga para homologação
+
+A partir da raiz do repositório:
 
 ```bash
 mysql -u root -p < database/schema.sql
@@ -11,7 +38,7 @@ mysql -u root -p pagamentos < database/seeds/002_fluxo_documentos_inspecoes_test
 mysql -u root -p pagamentos < database/seeds/003_programacao_liquidacao_cmdf_pagamento_teste.sql
 ```
 
-Os três seeds podem ser executados novamente na mesma base; a CI valida duas cargas consecutivas.
+Os seeds podem ser executados novamente na mesma base; a CI valida cargas consecutivas. Os cenários de teste referenciam as Naturezas da Despesa reais pelo `codigo`, sem duplicar cadastros fictícios.
 
 ## Usuários
 
@@ -40,8 +67,10 @@ O seed 003 usa a estrutura atual de parcelas: Origem do Recurso, Data de vencime
 
 Somente grupos `ATENDIDA` liberam suas parcelas para Pagamento.
 
-## Limpeza
+## Limpeza da homologação
 
 ```bash
 mysql -u root -p pagamentos < database/seeds/999_limpar_testes.sql
 ```
+
+A limpeza remove somente a massa de homologação. As 1.157 Naturezas da Despesa reais permanecem cadastradas.

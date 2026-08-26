@@ -1,6 +1,9 @@
 USE pagamentos;
 
 -- Massa exclusiva de homologação. IDs reservados: 9000-9999.
+-- Garante o cadastro mestre real antes de montar os cenários de teste.
+SOURCE database/seeds/000_naturezas_despesa_reais.sql;
+
 -- Senha comum dos usuários abaixo: Teste@123
 SET @senha_teste = '$2y$12$d4LZ3Zgv1yVaMimavBEgfuUGZsUX2tgs2nABvrHZOTZUBXq3KUHnq';
 
@@ -38,12 +41,4 @@ VALUES
 (9002,'1500','Tesouro',1),
 (9003,'1700','Convênio',1),
 (9004,'1800','Recursos vinculados',1)
-ON DUPLICATE KEY UPDATE codigo=VALUES(codigo),nome=VALUES(nome),ativo=1;
-
-INSERT INTO naturezas_despesa (id,codigo,nome,ativo)
-VALUES
-(9001,'3.3.90.30','Material de consumo',1),
-(9002,'3.3.90.36','Outros serviços de terceiros - PF',1),
-(9003,'3.3.90.39','Outros serviços de terceiros - PJ',1),
-(9004,'3.3.90.40','Serviços de tecnologia da informação',1)
 ON DUPLICATE KEY UPDATE codigo=VALUES(codigo),nome=VALUES(nome),ativo=1;
