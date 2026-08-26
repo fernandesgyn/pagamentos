@@ -6,12 +6,51 @@ final class Cadastro
     private PDO $db;
     public function __construct(){ $this->db=Database::connection(); }
 
-    public function fornecedores():array{return $this->db->query("SELECT * FROM fornecedores ORDER BY ativo DESC,razao_social")->fetchAll();}
-    public function fontesRecurso():array{return $this->db->query("SELECT * FROM fontes_recurso ORDER BY ativo DESC,codigo,nome")->fetchAll();}
-    public function naturezasDespesa():array{return $this->db->query("SELECT * FROM naturezas_despesa ORDER BY ativo DESC,codigo,nome")->fetchAll();}
-    public function origensRecurso():array{return $this->db->query("SELECT * FROM origens_recurso ORDER BY ativo DESC,codigo,nome")->fetchAll();}
-    public function tiposDocumento():array{return $this->db->query("SELECT * FROM tipos_documento_pagamento ORDER BY ativo DESC,nome")->fetchAll();}
-    public function tiposObrigacao():array{return $this->db->query("SELECT * FROM tipos_obrigacao ORDER BY ativo DESC,nome")->fetchAll();}
+    public function fornecedores():array
+    {
+        return $this->db->query("SELECT f.*,
+          EXISTS(SELECT 1 FROM obrigacoes o WHERE o.fornecedor_id=f.id) em_uso
+          FROM fornecedores f ORDER BY f.ativo DESC,f.razao_social")->fetchAll();
+    }
+
+    public function fontesRecurso():array
+    {
+        return $this->db->query("SELECT fr.*,
+          (EXISTS(SELECT 1 FROM obrigacao_fontes_recurso x WHERE x.fonte_recurso_id=fr.id)
+           OR EXISTS(SELECT 1 FROM parcelas_pagamento p WHERE p.fonte_recurso_id=fr.id)
+           OR EXISTS(SELECT 1 FROM cmdf_grupos g WHERE g.fonte_recurso_id=fr.id)) em_uso
+          FROM fontes_recurso fr ORDER BY fr.ativo DESC,fr.codigo,fr.nome")->fetchAll();
+    }
+
+    public function naturezasDespesa():array
+    {
+        return $this->db->query("SELECT nd.*,
+          (EXISTS(SELECT 1 FROM obrigacao_naturezas_despesa x WHERE x.natureza_despesa_id=nd.id)
+           OR EXISTS(SELECT 1 FROM parcelas_pagamento p WHERE p.natureza_despesa_id=nd.id)) em_uso
+          FROM naturezas_despesa nd ORDER BY nd.ativo DESC,nd.codigo,nd.nome")->fetchAll();
+    }
+
+    public function origensRecurso():array
+    {
+        return $this->db->query("SELECT ori.*,
+          (EXISTS(SELECT 1 FROM parcelas_pagamento p WHERE p.origem_recurso_id=ori.id)
+           OR EXISTS(SELECT 1 FROM cmdf_grupos g WHERE g.origem_recurso_id=ori.id)) em_uso
+          FROM origens_recurso ori ORDER BY ori.ativo DESC,ori.codigo,ori.nome")->fetchAll();
+    }
+
+    public function tiposDocumento():array
+    {
+        return $this->db->query("SELECT td.*,
+          EXISTS(SELECT 1 FROM documentos_pagamento d WHERE d.tipo_documento_id=td.id) em_uso
+          FROM tipos_documento_pagamento td ORDER BY td.ativo DESC,td.nome")->fetchAll();
+    }
+
+    public function tiposObrigacao():array
+    {
+        return $this->db->query("SELECT t.*,
+          EXISTS(SELECT 1 FROM obrigacoes o WHERE o.tipo_obrigacao_id=t.id) em_uso
+          FROM tipos_obrigacao t ORDER BY t.ativo DESC,t.nome")->fetchAll();
+    }
 
     public function fornecedor(int $id):?array{return $this->buscar('fornecedores',$id);}
     public function fonteRecurso(int $id):?array{return $this->buscar('fontes_recurso',$id);}
@@ -88,11 +127,43 @@ final class Cadastro
         $st=$this->db->prepare("SELECT * FROM {$tabela} WHERE id=?");$st->execute([$id]);$r=$st->fetch();return $r?:null;
     }
 
+    private function emUso(string $tabela,int $id):bool
+    {
+        $consultas=[
+            'fornecedores'=>[
+                'SELECT 1 FROM obrigacoes WHERE fornecedor_id=? LIMIT 1',
+            ],
+            'fontes_recurso'=>[
+                'SELECT 1 FROM obrigacao_fontes_recurso WHERE fonte_recurso_id=? LIMIT 1',
+                'SELECT 1 FROM parcelas_pagamento WHERE fonte_recurso_id=? LIMIT 1',
+                'SELECT 1 FROM cmdf_grupos WHERE fonte_recurso_id=? LIMIT 1',
+            ],
+            'naturezas_despesa'=>[
+                'SELECT 1 FROM obrigacao_naturezas_despesa WHERE natureza_despesa_id=? LIMIT 1',
+                'SELECT 1 FROM parcelas_pagamento WHERE natureza_despesa_id=? LIMIT 1',
+            ],
+            'origens_recurso'=>[
+                'SELECT 1 FROM parcelas_pagamento WHERE origem_recurso_id=? LIMIT 1',
+                'SELECT 1 FROM cmdf_grupos WHERE origem_recurso_id=? LIMIT 1',
+            ],
+            'tipos_documento_pagamento'=>[
+                'SELECT 1 FROM documentos_pagamento WHERE tipo_documento_id=? LIMIT 1',
+            ],
+            'tipos_obrigacao'=>[
+                'SELECT 1 FROM obrigacoes WHERE tipo_obrigacao_id=? LIMIT 1',
+            ],
+        ];
+        if(!isset($consultas[$tabela]))throw new LogicException('Cadastro inválido.');
+        foreach($consultas[$tabela] as $sql){$st=$this->db->prepare($sql);$st->execute([$id]);if($st->fetchColumn())return true;}
+        return false;
+    }
+
     private function excluir(string $tabela,int $id,string $rotulo):void
     {
         if($id<=0)throw new InvalidArgumentException($rotulo.' inválido.');
         $permitidas=['fornecedores','fontes_recurso','naturezas_despesa','origens_recurso','tipos_documento_pagamento','tipos_obrigacao'];
         if(!in_array($tabela,$permitidas,true))throw new LogicException('Cadastro inválido.');
+        if($this->emUso($tabela,$id))throw new RuntimeException($rotulo.' não pode ser excluído porque já foi utilizado em outro cadastro.');
         try{$st=$this->db->prepare("DELETE FROM {$tabela} WHERE id=?");$st->execute([$id]);if($st->rowCount()===0)throw new RuntimeException($rotulo.' não encontrado.');}
         catch(PDOException $e){if((string)$e->getCode()==='23000')throw new RuntimeException($rotulo.' não pode ser excluído porque possui registros vinculados.');throw $e;}
     }
