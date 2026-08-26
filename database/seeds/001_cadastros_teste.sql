@@ -1,8 +1,9 @@
 USE pagamentos;
 
 -- Massa exclusiva de homologação. IDs reservados: 9000-9999.
--- As Naturezas da Despesa são cadastro mestre real e são carregadas por
--- database/seeds/000_naturezas_despesa_reais.sql.
+-- Garante o cadastro mestre real antes de montar os cenários de teste.
+SOURCE database/seeds/000_naturezas_despesa_reais.sql;
+
 -- Senha comum dos usuários abaixo: Teste@123
 SET @senha_teste = '$2y$12$d4LZ3Zgv1yVaMimavBEgfuUGZsUX2tgs2nABvrHZOTZUBXq3KUHnq';
 
