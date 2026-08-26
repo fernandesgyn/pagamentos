@@ -11,10 +11,9 @@ DELETE FROM inspecao_historico WHERE id BETWEEN 9000 AND 9999 OR inspecao_id BET
 DELETE FROM inspecoes WHERE id BETWEEN 9000 AND 9999 OR documento_id BETWEEN 9000 AND 9999;
 DELETE FROM documentos_pagamento WHERE id BETWEEN 9000 AND 9999;
 DELETE FROM obrigacao_fontes_recurso WHERE obrigacao_id BETWEEN 9000 AND 9999 OR fonte_recurso_id BETWEEN 9000 AND 9999;
-DELETE FROM obrigacao_naturezas_despesa WHERE obrigacao_id BETWEEN 9000 AND 9999 OR natureza_despesa_id BETWEEN 9000 AND 9999;
+DELETE FROM obrigacao_naturezas_despesa WHERE obrigacao_id BETWEEN 9000 AND 9999;
 DELETE FROM obrigacoes WHERE id BETWEEN 9000 AND 9999;
 DELETE FROM fornecedores WHERE id BETWEEN 9000 AND 9999;
 DELETE FROM fontes_recurso WHERE id BETWEEN 9000 AND 9999;
-DELETE FROM naturezas_despesa WHERE id BETWEEN 9000 AND 9999;
 DELETE FROM usuarios WHERE id BETWEEN 9000 AND 9999;
 SET FOREIGN_KEY_CHECKS=1;
