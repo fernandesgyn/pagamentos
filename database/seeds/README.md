@@ -11,11 +11,21 @@ A fonte possui dois atributos:
 
 O nome interno da coluna `nome` é mantido por compatibilidade com a arquitetura atual; funcionalmente ele representa a descrição oficial. O cadastro mestre usa IDs de `100001` a `101157`, não pertence à massa descartável de homologação e **não é removido** por `999_limpar_testes.sql`.
 
-O arquivo mestre é idempotente e pode ser reaplicado para atualizar as descrições oficiais pelo código.
+As descrições preservam o conteúdo da fonte, com normalização apenas de espaços residuais no início/fim das células. O arquivo mestre é idempotente e pode ser reaplicado para atualizar as descrições oficiais pelo código.
+
+### Carga do cadastro mestre
+
+Para uma base que precisa apenas dos dados reais de referência:
+
+```bash
+mysql -u root -p pagamentos < database/seeds/000_naturezas_despesa_reais.sql
+```
 
 ## Massa de homologação
 
 Os seeds `001`, `002` e `003` são exclusivamente de homologação/testes e usam IDs de 9000 a 9999 para seus registros próprios. Não execute essa massa de teste em produção.
+
+O seed `001_cadastros_teste.sql` carrega automaticamente o cadastro mestre de Naturezas da Despesa antes de criar a massa descartável. Assim os cenários de homologação nunca dependem de naturezas fictícias.
 
 ### Carga para homologação
 
@@ -23,13 +33,12 @@ A partir da raiz do repositório:
 
 ```bash
 mysql -u root -p < database/schema.sql
-mysql -u root -p pagamentos < database/seeds/000_naturezas_despesa_reais.sql
 mysql -u root -p pagamentos < database/seeds/001_cadastros_teste.sql
 mysql -u root -p pagamentos < database/seeds/002_fluxo_documentos_inspecoes_teste.sql
 mysql -u root -p pagamentos < database/seeds/003_programacao_liquidacao_cmdf_pagamento_teste.sql
 ```
 
-Os seeds podem ser executados novamente na mesma base; a CI valida duas cargas consecutivas. Os cenários de teste referenciam as Naturezas da Despesa reais pelo `codigo`, sem duplicar cadastros fictícios.
+Os seeds podem ser executados novamente na mesma base; a CI valida cargas consecutivas. Os cenários de teste referenciam as Naturezas da Despesa reais pelo `codigo`, sem duplicar cadastros fictícios.
 
 ## Usuários
 
