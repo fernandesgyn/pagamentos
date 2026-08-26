@@ -42,19 +42,14 @@ final class FilaController
             }
             $this->fluxo->atualizarInspecao((int)$documentoId,$_POST);
             $doc = $this->fluxo->documento((int)$documentoId);
-            if ($doc && (bool)$doc['permite_avancar']) {
-                if (Auth::can('parcela.gerir')) {
-                    $_SESSION['flash']=['success','Inspeção concluída e liberada. Cadastre as parcelas da Programação.'];
-                    redirect('/programacao/'.$documentoId);
-                }
-                $_SESSION['flash']=['success','Inspeção concluída e liberada para Programação.'];
-                redirect('/inspecoes');
-            }
-            $_SESSION['flash']=['success','Inspeção atualizada.'];
+            $_SESSION['flash']=['success',$doc && (bool)$doc['permite_avancar']
+                ? 'Inspeção concluída. O documento está disponível na Programação.'
+                : 'Inspeção atualizada.'];
+            redirect('/inspecoes');
         } catch (Throwable $e) {
             $_SESSION['flash']=['danger',$e->getMessage()];
+            redirect('/inspecoes/'.$documentoId);
         }
-        redirect('/inspecoes/'.$documentoId);
     }
 
     public function desfazerInspecao(string $documentoId): void
@@ -98,11 +93,12 @@ final class FilaController
             $this->fluxo->adicionarParcela((int)$documentoId,$_POST);
             $_SESSION['flash']=['success',$this->fluxo->documentoProgramacaoFechada((int)$documentoId)
                 ? 'Parcela adicionada e Programação fechada. As parcelas estão disponíveis para Liquidação.'
-                : 'Parcela adicionada. Continue até fechar o valor líquido do documento.'];
+                : 'Parcela adicionada. A Programação permanece aberta até fechar o valor líquido do documento.'];
+            redirect('/programacao');
         } catch (Throwable $e) {
             $_SESSION['flash']=['danger',$e->getMessage()];
+            redirect('/programacao/'.$documentoId);
         }
-        redirect('/programacao/'.$documentoId);
     }
 
     public function desfazerProgramacao(string $documentoId,string $parcelaId): void
@@ -142,10 +138,11 @@ final class FilaController
             }
             $this->fluxo->atualizarLiquidacao((int)$parcelaId,$_POST);
             $_SESSION['flash']=['success','Liquidação atualizada.'];
+            redirect('/liquidacoes');
         } catch (Throwable $e) {
             $_SESSION['flash']=['danger',$e->getMessage()];
+            redirect('/liquidacoes/'.$parcelaId);
         }
-        redirect('/liquidacoes/'.$parcelaId);
     }
 
     public function desfazerLiquidacao(string $parcelaId): void
@@ -180,9 +177,9 @@ final class FilaController
     {
         Auth::requirePermission('cmdf.grupo.ajustar');
         try {
-            $id = $this->cmdf->criarGrupoManual($_POST['parcelas_ids'] ?? []);
+            $this->cmdf->criarGrupoManual($_POST['parcelas_ids'] ?? []);
             $_SESSION['flash']=['success','Grupo CMDF criado.'];
-            redirect('/cmdf/grupos/'.$id);
+            redirect('/cmdf');
         } catch (Throwable $e) {
             $_SESSION['flash']=['danger',$e->getMessage()];
             redirect('/cmdf');
@@ -228,8 +225,11 @@ final class FilaController
         try {
             $this->cmdf->atualizarStatus((int)$grupoId,(string)($_POST['status'] ?? ''));
             $_SESSION['flash']=['success','Status do grupo CMDF atualizado.'];
-        } catch (Throwable $e) { $_SESSION['flash']=['danger',$e->getMessage()]; }
-        redirect('/cmdf/grupos/'.$grupoId);
+            redirect('/cmdf');
+        } catch (Throwable $e) {
+            $_SESSION['flash']=['danger',$e->getMessage()];
+            redirect('/cmdf/grupos/'.$grupoId);
+        }
     }
 
     public function desfazerCmdf(string $grupoId): void
