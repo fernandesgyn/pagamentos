@@ -1,0 +1,127 @@
+name: Gerar Banco Teste Unico
+
+on:
+  push:
+    branches:
+      - feature/banco-teste-unico
+
+permissions:
+  contents: write
+
+jobs:
+  gerar-validar:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -proot"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    env:
+      MYSQL_PWD: root
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gerar SQL autocontido
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT=database/pagamentos_teste_completo.sql
+          {
+            echo '-- ============================================================='
+            echo '-- PAGAMENTOS - BANCO COMPLETO PARA TESTE/HOMOLOGACAO'
+            echo '-- Arquivo autocontido: nao depende de SOURCE nem de outro SQL.'
+            echo '-- ATENCAO: APAGA E RECRIA A BASE pagamentos. NAO USAR EM PRODUCAO.'
+            echo '-- ============================================================='
+            echo
+            echo 'SET NAMES utf8mb4;'
+            echo 'SET FOREIGN_KEY_CHECKS=0;'
+            echo 'DROP DATABASE IF EXISTS pagamentos;'
+            echo 'SET FOREIGN_KEY_CHECKS=1;'
+            echo
+            cat database/schema.sql
+            echo
+            echo '-- ============================================================='
+            echo '-- 1.157 NATUREZAS DA DESPESA REAIS'
+            echo '-- ============================================================='
+            for f in database/seeds/naturezas_despesa_reais/001.sql \
+                     database/seeds/naturezas_despesa_reais/002.sql \
+                     database/seeds/naturezas_despesa_reais/003.sql \
+                     database/seeds/naturezas_despesa_reais/004.sql \
+                     database/seeds/naturezas_despesa_reais/005.sql \
+                     database/seeds/naturezas_despesa_reais/006.sql; do
+              cat "$f"
+              echo
+            done
+            echo '-- ============================================================='
+            echo '-- MASSA DE HOMOLOGACAO'
+            echo '-- Usuario principal: admin.teste / Teste@123'
+            echo '-- ============================================================='
+            sed '/^[[:space:]]*SOURCE[[:space:]]/d' database/seeds/001_cadastros_teste.sql
+            echo
+            cat database/seeds/002_fluxo_documentos_inspecoes_teste.sql
+            echo
+            cat database/seeds/003_programacao_liquidacao_cmdf_pagamento_teste.sql
+            echo
+            echo '-- FIM DO BANCO COMPLETO PARA TESTE'
+          } > "$OUT"
+
+          test -s "$OUT"
+          ! grep -nE '^[[:space:]]*SOURCE[[:space:]]' "$OUT"
+          grep -q 'DROP DATABASE IF EXISTS pagamentos' "$OUT"
+          grep -q 'CREATE TABLE naturezas_despesa' "$OUT"
+          grep -q "'3.3.90.40.00','Serviço de Tecnologia da Informação e Comunicação - Pessoa Jurídica'" "$OUT"
+
+      - name: Importar somente o arquivo unico
+        shell: bash
+        run: |
+          set -euo pipefail
+          mysql -h 127.0.0.1 -uroot < database/pagamentos_teste_completo.sql
+
+      - name: Validar banco importado
+        shell: bash
+        run: |
+          set -euo pipefail
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='pagamentos';" | grep '^24$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.naturezas_despesa;" | grep '^1157$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(DISTINCT codigo) FROM pagamentos.naturezas_despesa;" | grep '^1157$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.usuarios WHERE id BETWEEN 9000 AND 9999;" | grep '^6$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.obrigacoes WHERE id BETWEEN 9000 AND 9999;" | grep '^6$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.documentos_pagamento WHERE id BETWEEN 9000 AND 9999;" | grep '^10$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.parcelas_pagamento WHERE id BETWEEN 9000 AND 9999;" | grep '^7$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.cmdf_grupos WHERE id BETWEEN 9000 AND 9999;" | grep '^3$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.pagamentos WHERE id BETWEEN 9000 AND 9999;" | grep '^2$'
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT COUNT(*) FROM pagamentos.usuarios WHERE login='admin.teste';" | grep '^1$'
+
+      - name: Reimportar o mesmo arquivo do zero
+        shell: bash
+        run: |
+          set -euo pipefail
+          mysql -h 127.0.0.1 -uroot < database/pagamentos_teste_completo.sql
+          mysql -h 127.0.0.1 -uroot -N -e "SELECT CONCAT((SELECT COUNT(*) FROM pagamentos.naturezas_despesa),'|',(SELECT COUNT(*) FROM pagamentos.documentos_pagamento),'|',(SELECT COUNT(*) FROM pagamentos.parcelas_pagamento));" | grep '^1157|10|7$'
+
+      - name: Publicar arquivo gerado na branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add database/pagamentos_teste_completo.sql
+          if git diff --cached --quiet; then
+            echo 'Arquivo já está atualizado.'
+            exit 0
+          fi
+          git commit -m 'Adiciona banco completo de teste autocontido'
+          git push origin HEAD:${GITHUB_REF_NAME}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pagamentos-teste-completo
+          path: database/pagamentos_teste_completo.sql
+          if-no-files-found: error
